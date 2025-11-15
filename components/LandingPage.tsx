@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import DarkModeToggle from "./DarkModeToggle";
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -9,27 +10,28 @@ interface LandingPageProps {
 
 export default function LandingPage({ onGetStarted }: LandingPageProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Navigation */}
       <nav className="container mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
-          <div className="text-2xl font-bold text-indigo-600">Haven</div>
+          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">Haven</div>
           <div className="flex items-center gap-4">
             <Link
               href="#features"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               Features
             </Link>
             <Link
               href="#about"
-              className="text-gray-700 hover:text-indigo-600 transition-colors"
+              className="text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               About
             </Link>
+            <DarkModeToggle />
             <button
               onClick={onGetStarted}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 transition-colors border border-gray-300 rounded-full hover:border-indigo-600"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border border-gray-300 dark:border-gray-600 rounded-full hover:border-indigo-600 dark:hover:border-indigo-400"
             >
               Get Started
             </button>
@@ -41,17 +43,17 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       <div className="container mx-auto px-6 py-20">
         <div className="max-w-4xl mx-auto text-center">
           <motion.h1
-            className="text-6xl md:text-7xl font-bold text-gray-900 mb-6"
+            className="text-6xl md:text-7xl font-bold text-gray-900 dark:text-white mb-6"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
             Find Your Perfect
-            <span className="block text-indigo-600">Apartment</span>
+            <span className="block text-indigo-600 dark:text-indigo-400">Apartment</span>
           </motion.h1>
           
           <motion.p
-            className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto"
+            className="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
@@ -86,32 +88,32 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.6 }}
         >
-          <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
             <div className="text-4xl mb-4">🏠</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               Swipe to Discover
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               Browse through verified apartment listings with an intuitive swipe interface.
             </p>
           </div>
 
-          <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
             <div className="text-4xl mb-4">🤖</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               AI Validated
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               All listings are verified by AI to ensure quality and authenticity.
             </p>
           </div>
 
-          <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
             <div className="text-4xl mb-4">👥</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
               Roommate Matching
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-300">
               Find compatible roommates based on your preferences and lifestyle.
             </p>
           </div>
@@ -125,10 +127,10 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.8 }}
         >
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
             Apartment Hunting Made Simple
           </h2>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-600 dark:text-gray-300">
             Haven is the modern way to find your next apartment. Swipe through verified listings,
             get personalized recommendations, and connect with potential roommates—all in one place.
           </p>
@@ -136,8 +138,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 mt-20 py-8">
-        <div className="container mx-auto px-6 text-center text-gray-600">
+      <footer className="border-t border-gray-200 dark:border-gray-700 mt-20 py-8">
+        <div className="container mx-auto px-6 text-center text-gray-600 dark:text-gray-400">
           <p>&copy; 2024 Haven. Built for students, by students.</p>
         </div>
       </footer>

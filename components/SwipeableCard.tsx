@@ -108,9 +108,9 @@ export default function SwipeableCard({
       initial={false}
     >
       <div className="w-full max-w-md mx-auto">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden">
           {/* Image Carousel */}
-          <div className="relative h-96 bg-gray-200">
+          <div className="relative h-96 bg-gray-200 dark:bg-gray-700">
             <Image
               src={listing.images[imageIndex]}
               alt={listing.title}
@@ -182,18 +182,18 @@ export default function SwipeableCard({
           <div className="p-6">
             <div className="flex items-start justify-between mb-2">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{listing.title}</h2>
-                <p className="text-gray-600 text-sm mt-1">{listing.address}</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{listing.title}</h2>
+                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">{listing.address}</p>
               </div>
               <div className="text-right">
-                <div className="text-3xl font-bold text-indigo-600">
+                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
                   ${listing.price.toLocaleString()}
                 </div>
-                <div className="text-sm text-gray-500">/month</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400">/month</div>
               </div>
             </div>
 
-            <div className="flex gap-4 text-sm text-gray-600 mb-4">
+            <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-300 mb-4">
               <span>{listing.bedrooms} bed{listing.bedrooms !== 1 ? "s" : ""}</span>
               <span>•</span>
               <span>{listing.bathrooms} bath{listing.bathrooms !== 1 ? "s" : ""}</span>
@@ -201,26 +201,26 @@ export default function SwipeableCard({
               <span>{listing.sqft.toLocaleString()} sqft</span>
             </div>
 
-            <p className="text-gray-700 mb-4 line-clamp-2">{listing.description}</p>
+            <p className="text-gray-700 dark:text-gray-300 mb-4 line-clamp-2">{listing.description}</p>
 
             {/* Amenities */}
             <div className="flex flex-wrap gap-2 mb-4">
               {listing.amenities.slice(0, 4).map((amenity, i) => (
                 <span
                   key={i}
-                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium"
+                  className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium"
                 >
                   {amenity}
                 </span>
               ))}
               {listing.amenities.length > 4 && (
-                <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
+                <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium">
                   +{listing.amenities.length - 4} more
                 </span>
               )}
             </div>
 
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
               Available from {new Date(listing.availableFrom).toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",

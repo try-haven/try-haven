@@ -3,6 +3,7 @@
 import { ApartmentListing } from "@/lib/data";
 import Image from "next/image";
 import { useState } from "react";
+import DarkModeToggle from "./DarkModeToggle";
 
 interface LikedListingsProps {
   likedListings: ApartmentListing[];
@@ -16,23 +17,26 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
 
   if (likedListings.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
         <div className="container mx-auto px-6 max-w-4xl">
           <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold text-indigo-600">Haven</h1>
-            <button
-              onClick={onBack}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 transition-colors"
-            >
-              Back to Swiping
-            </button>
+            <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
+            <div className="flex gap-4 items-center">
+              <DarkModeToggle />
+              <button
+                onClick={onBack}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              >
+                Back to Swiping
+              </button>
+            </div>
           </div>
-          <div className="flex flex-col items-center justify-center min-h-[600px] text-center p-8 bg-white rounded-2xl shadow-lg">
+          <div className="flex flex-col items-center justify-center min-h-[600px] text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
             <div className="text-6xl mb-4">💔</div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               No liked listings yet
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
               Start swiping to like apartments you&apos;re interested in!
             </p>
             <button
@@ -49,25 +53,27 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
 
   if (selectedListing) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
         <div className="container mx-auto px-6 max-w-4xl">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => setSelectedListing(null)}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
               Back to List
             </button>
-            <h1 className="text-3xl font-bold text-indigo-600">Haven</h1>
-            <div className="w-24"></div>
+            <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
+            <div className="w-24 flex justify-end">
+              <DarkModeToggle />
+            </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
             {/* Image Carousel */}
-            <div className="relative h-96 bg-gray-200">
+            <div className="relative h-96 bg-gray-200 dark:bg-gray-700">
               <Image
                 src={selectedListing.images[imageIndex]}
                 alt={selectedListing.title}
@@ -112,18 +118,18 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
             <div className="p-8">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h2 className="text-3xl font-bold text-gray-900 mb-2">{selectedListing.title}</h2>
-                  <p className="text-gray-600">{selectedListing.address}</p>
+                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{selectedListing.title}</h2>
+                  <p className="text-gray-600 dark:text-gray-300">{selectedListing.address}</p>
                 </div>
                 <div className="text-right">
-                  <div className="text-4xl font-bold text-indigo-600">
+                  <div className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">
                     ${selectedListing.price.toLocaleString()}
                   </div>
-                  <div className="text-sm text-gray-500">/month</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">/month</div>
                 </div>
               </div>
 
-              <div className="flex gap-4 text-lg text-gray-600 mb-6">
+              <div className="flex gap-4 text-lg text-gray-600 dark:text-gray-300 mb-6">
                 <span>{selectedListing.bedrooms} bed{selectedListing.bedrooms !== 1 ? "s" : ""}</span>
                 <span>•</span>
                 <span>{selectedListing.bathrooms} bath{selectedListing.bathrooms !== 1 ? "s" : ""}</span>
@@ -131,15 +137,15 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                 <span>{selectedListing.sqft.toLocaleString()} sqft</span>
               </div>
 
-              <p className="text-gray-700 mb-6 text-lg leading-relaxed">{selectedListing.description}</p>
+              <p className="text-gray-700 dark:text-gray-300 mb-6 text-lg leading-relaxed">{selectedListing.description}</p>
 
               <div className="mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Amenities</h3>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Amenities</h3>
                 <div className="flex flex-wrap gap-2">
                   {selectedListing.amenities.map((amenity, i) => (
                     <span
                       key={i}
-                      className="px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-medium"
+                      className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm font-medium"
                     >
                       {amenity}
                     </span>
@@ -147,8 +153,8 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-gray-200 flex items-center justify-between">
-                <p className="text-gray-600">
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <p className="text-gray-600 dark:text-gray-300">
                   <span className="font-semibold">Available from:</span>{" "}
                   {new Date(selectedListing.availableFrom).toLocaleDateString("en-US", {
                     month: "long",
@@ -177,14 +183,15 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
       <div className="container mx-auto px-6 max-w-6xl">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-indigo-600">Haven</h1>
-          <div className="flex gap-4">
+          <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
+          <div className="flex gap-4 items-center">
+            <DarkModeToggle />
             <button
               onClick={onBack}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 transition-colors"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               Back to Swiping
             </button>
@@ -192,17 +199,17 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
         </div>
 
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Your Liked Listings ({likedListings.length})
           </h2>
-          <p className="text-gray-600">Apartments you&apos;ve swiped right on</p>
+          <p className="text-gray-600 dark:text-gray-300">Apartments you&apos;ve swiped right on</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {likedListings.map((listing) => (
             <div
               key={listing.id}
-              className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow relative group"
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow relative group"
             >
               <div
                 onClick={() => {
@@ -211,7 +218,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                 }}
                 className="cursor-pointer"
               >
-                <div className="relative h-48 bg-gray-200">
+                <div className="relative h-48 bg-gray-200 dark:bg-gray-700">
                   <Image
                     src={listing.images[0]}
                     alt={listing.title}
@@ -221,13 +228,13 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                 </div>
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
-                    <h3 className="text-lg font-bold text-gray-900 line-clamp-1">{listing.title}</h3>
-                    <div className="text-xl font-bold text-indigo-600">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white line-clamp-1">{listing.title}</h3>
+                    <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
                       ${listing.price.toLocaleString()}
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-1">{listing.address}</p>
-                  <div className="flex gap-2 text-xs text-gray-500 mb-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-2 line-clamp-1">{listing.address}</p>
+                  <div className="flex gap-2 text-xs text-gray-500 dark:text-gray-400 mb-3">
                     <span>{listing.bedrooms} bed</span>
                     <span>•</span>
                     <span>{listing.bathrooms} bath</span>
@@ -238,13 +245,13 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                     {listing.amenities.slice(0, 2).map((amenity, i) => (
                       <span
                         key={i}
-                        className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs"
+                        className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs"
                       >
                         {amenity}
                       </span>
                     ))}
                     {listing.amenities.length > 2 && (
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">
+                      <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
                         +{listing.amenities.length - 2}
                       </span>
                     )}
@@ -257,7 +264,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                   e.stopPropagation();
                   onRemoveLike(listing.id);
                 }}
-                className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-lg transition-colors opacity-0 group-hover:opacity-100"
+                className="absolute top-4 right-4 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 rounded-full p-2 shadow-lg transition-colors opacity-0 group-hover:opacity-100"
                 aria-label="Remove from liked"
                 title="Remove from liked"
               >

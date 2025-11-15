@@ -4,6 +4,7 @@ import { useState } from "react";
 import LandingPage from "@/components/LandingPage";
 import CardStack from "@/components/CardStack";
 import LikedListings from "@/components/LikedListings";
+import DarkModeToggle from "@/components/DarkModeToggle";
 import { fakeListings, ApartmentListing } from "@/lib/data";
 
 type View = "landing" | "swipe" | "liked";
@@ -38,11 +39,12 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-indigo-600">Haven</h1>
-          <div className="flex gap-4">
+          <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
+          <div className="flex gap-4 items-center">
+            <DarkModeToggle />
             {likedIds.size > 0 && (
               <button
                 onClick={() => setView("liked")}
@@ -56,7 +58,7 @@ export default function Home() {
             )}
             <button
               onClick={() => setView("landing")}
-              className="px-4 py-2 text-gray-700 hover:text-indigo-600 transition-colors"
+              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >
               Back to Home
             </button>

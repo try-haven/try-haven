@@ -150,10 +150,10 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
     return (
       <div className="flex flex-col items-center justify-center h-full min-h-[600px] text-center p-8">
         <div className="text-6xl mb-4">🎉</div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
+        <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
           You&apos;ve seen all listings!
         </h2>
-        <p className="text-gray-600 mb-6">
+        <p className="text-gray-600 dark:text-gray-300 mb-6">
           Check back later for more apartments or upload your own listing.
         </p>
         <div className="flex flex-col sm:flex-row gap-4">
@@ -193,7 +193,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         {/* Action Buttons on Sides - Positioned outside card but not too far */}
         <button
           onClick={handlePass}
-          className="group absolute left-0 top-1/2 -translate-y-1/2 -translate-x-20 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center hover:scale-110 transition-all border-2 border-red-200 hover:bg-red-500 hover:border-red-500 z-50"
+          className="group absolute left-0 top-1/2 -translate-y-1/2 -translate-x-20 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 z-50"
           aria-label="Pass"
         >
                 <svg
@@ -212,7 +212,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         </button>
         <button
           onClick={handleLike}
-          className="group absolute right-0 top-1/2 -translate-y-1/2 translate-x-20 w-14 h-14 rounded-full bg-white shadow-xl flex items-center justify-center hover:scale-110 transition-all border-2 border-green-200 hover:bg-green-500 hover:border-green-500 z-50"
+          className="group absolute right-0 top-1/2 -translate-y-1/2 translate-x-20 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 z-50"
           aria-label="Like"
         >
           <svg
@@ -249,7 +249,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
       {/* Progress Indicator */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
-        <div className="bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700">
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700 dark:text-gray-200">
           {currentIndex + 1} / {listings.length}
         </div>
         {likedListings.size > 0 && (
