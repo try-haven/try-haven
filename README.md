@@ -348,73 +348,194 @@ Currently using public APIs (OpenStreetMap). For production, you may want to:
 
 ## 💰 Monetization Strategy
 
-### Core Monetization (Early Stage)
+Haven uses a multi-layered monetization approach targeting both renters (demand side) and landlords (supply side), plus affiliate and ad revenue.
 
-1. **Apartment Lead Fees (Referral Fees)**
-   - $5–$20 per qualified lead for small landlords
-   - $20–$80 per lead for large property managers
-   - 1–2% of annual rent for high-end rentals
-   - Main revenue driver
+### 🟦 Category 1: Renter-Facing Monetization (Demand Side)
 
-2. **Sponsored Listings (Boosted Apartments)**
-   - $50–$300 per month per property
-   - Appear earlier in swipe deck
-   - "Top Pick" badges
-   - High-margin revenue
+**High volume, high margin — core revenue early on**
 
-3. **Ads (High-Volume, Low-Friction)**
-   - Real estate niche CPM: $12–$30
-   - Moving companies, internet providers, rental insurance
-   - Furniture brands, storage companies
-   - Banner ads + interstitials in swipe flow
+#### 1. Early Access / "First Look" Premium (NEW — High-Value)
 
-### Secondary Monetization (Growth Stage)
+Renters get access to new listings 24–72 hours before free users, plus priority matching.
 
-4. **Roommate Matching Premium**
-   - $5–$20/month subscription
-   - See people who liked your profile
-   - Advanced lifestyle filters
-   - AI compatibility scoring
-   - Priority placement
+**Value proposition:** "See apartments BEFORE anyone else. Be first in line."
 
-5. **AI-Powered Personalized Search**
-   - $10–$25/month premium upgrade
-   - AI negotiates rent
-   - AI pre-fills application forms
-   - AI compares prices
-   - AI flags scam listings
+**Features:**
+- Early access to all new listings
+- Priority in lead queue to landlords
+- Instant notifications on matching units
+- Swipe priority (premium users see best listings sooner)
 
-6. **Data Subscriptions for Landlords**
-   - $29–$199/month per landlord
-   - Rent trends from swipes
-   - Neighborhood amenity preferences
-   - Real-time demand heatmaps
-   - Market insights dashboards
+**Pricing options:**
+- $4.99/mo (Basic First Look)
+- $9.99/mo (Full Early Access + ad-free + AI suggestions)
+- $1.99 one-time 48-hour Fast Pass
 
-### Future Monetization (Scale Stage)
+**Expected conversion:** 3–10% of active renters (Students + big cities: up to 15%)
 
-7. **API + Integrations for Property Managers**
-   - $100–$500 per building
-   - Per-unit SaaS ($1–$3 per active unit)
-   - Automatic listing ingestion
-   - Automated lead management
+#### 2. Premium Roommate Matching
 
-8. **Guaranteed Rent / Deposit-Free Partnerships**
-   - $20–$50 per contract commission
-   - Partner with insurance providers
-   - Credit-building rent-reporting
+A paid upgrade for users looking for roommates.
 
-9. **Affiliate Sales**
-   - $10–$100 commissions
-   - Furniture bundles, WiFi plans, utilities
-   - Moving trucks, cleaning services, storage
+**Premium features:**
+- "See who liked you"
+- Compatibility scoring
+- Verified roommate badges
+- Lifestyle alignment filters
+- Priority placement in roommate search
 
-### Revenue Projections
+**Pricing:**
+- $5.99/mo
+- Or $29 one-time "Find me a match" bundle
 
-- **Short term (0–12 months)**: Lead generation fees, sponsored listings, ads
-- **Medium term (1–2 years)**: Premium roommate features, AI premium search
-- **Long term (2–3 years)**: Analytics SaaS, API billing, deposit-free partnerships
-- **Target margins**: 50–70% with high LTV and recurring revenue
+#### 3. AI-Powered Apartment Search Premium
+
+For renters willing to pay for speed and convenience.
+
+**Includes:**
+- AI-driven neighborhood fit
+- AI filtering and ranking
+- AI negotiation assistant
+- AI-filled rental application forms
+- Scam detection
+- Market-rate comparison
+
+**Pricing:** $7.99–$14.99/mo  
+**Margin:** 95%+
+
+#### 4. Ad Revenue (High CPM)
+
+Non-intrusive ads in swipe flow or listing detail pages.
+
+**Advertisers:**
+- Movers
+- Internet providers
+- Furniture stores
+- Storage services
+- Cleaning services
+- Renters insurance
+- Credit/reporting partners
+
+**Expected CPM:** $12–$30 (real-estate niche is premium)  
+Ads alone can fully fund infra growth.
+
+### 🟧 Category 2: Landlord/Property Manager Monetization (Supply Side)
+
+**Recurring, high-ticket revenue — scales with inventory**
+
+#### 5. Sponsored / Boosted Listings
+
+Landlords pay to appear:
+- At the top of swipes
+- In "Featured" carousel
+- With a badge
+- More often in search
+
+**Pricing:** $50–$300 per building per month (scales with portfolio size)
+
+#### 6. Lead Generation Fees
+
+Every time a user requests a tour or submits interest, you charge the landlord.
+
+**Pricing:**
+- $5–$20 per qualified lead for small landlords
+- $20–$80 per lead for larger PMs
+- Or 1–2% of annual rent for premium buildings
+
+Highly scalable.
+
+#### 7. Landlord Insight Dashboard (SaaS)
+
+Data-as-a-service driven by swipe patterns.
+
+**Features:**
+- Demand heatmaps
+- Rent competitiveness index
+- Preferred amenities
+- Real-time swipe rankings
+- Pricing optimization
+
+**Pricing:** $29–$199/mo depending on building count  
+High retention, high ARR.
+
+#### 8. Automated Lead Management / CRM Tools
+
+Mini platform for landlords:
+- Auto-respond to leads
+- Auto-schedule tours
+- Integrate with their leasing CRM
+- Vacancy tracking
+
+**Pricing:** $10–$100/mo or $1–$3 per active unit
+
+### 🟩 Category 3: Transactional & Affiliate Revenue
+
+#### 9. Deposit-Free Rental Partnerships
+
+Work with insurance partners to offer:
+- Deposit-free move-in
+- ID verification
+- Rent guarantee services
+
+**Commission:** $20–$50 per activation  
+Zero engineering beyond integration.
+
+#### 10. Moving + Furniture + Internet Affiliate Sales
+
+Renters need services immediately after finding a place.
+
+**Monetize:**
+- Internet plans (AT&T/Xfinity)
+- Furniture bundles
+- Mattresses
+- Cleaners
+- Moving trucks
+- Storage units
+- Renters insurance
+- Utilities setup
+
+**Commission:** $10–$150 per conversion
+
+#### 11. Application/Background Check Partnerships
+
+Integrate existing platforms like Checkr, TransUnion, or Certn.
+
+**Revenue:** $5–$20 per screening or revenue-sharing
+
+### 🟨 Category 4: Long-Term / Scale Monetization (Optional Future)
+
+#### 12. Haven API for Housing Networks
+
+Provide APIs for:
+- Automated listing ingestion
+- Bulk uploading
+- Multi-city promotions
+- Market intelligence
+
+**Pricing:** Subscription or per-seat
+
+#### 13. University/Corporate Housing Integrations
+
+Bulk agreements with:
+- Universities
+- Intern housing programs
+- Companies relocating employees
+
+**Per-seat price:** $2–$10 per user per semester
+
+### 🟫 Overall Monetization Architecture
+
+Here's how the revenue layers stack in a mature Haven ecosystem:
+
+| Layer | Monetization | Margin | Who Pays? |
+|-------|-------------|--------|-----------|
+| **Demand Tier** | First Look, AI Search, Roommate Premium | 95% | Renters |
+| **Ads** | In-app ads | 100% | Advertisers |
+| **Supply Tier** | Sponsored listings, Leads, SaaS | 90% | Landlords/PMs |
+| **Affiliate Layer** | Movers, utilities, furniture | 50–70% | External partners |
+| **Future Tier** | API, corporate, campus | 90–95% | Institutions |
+
+**Revenue Strategy:** Multiple independent revenue engines targeting both sides of the marketplace plus affiliate + ad revenue, creating a financially strong business model.
 
 ## 💸 Funding Strategy
 
