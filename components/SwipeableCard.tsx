@@ -1,9 +1,13 @@
 "use client";
 
 import { motion, useMotionValue, useTransform, PanInfo, animate } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ApartmentListing } from "@/lib/data";
 import Image from "next/image";
+import dynamic from "next/dynamic";
+
+// Dynamically import the map component to avoid SSR issues
+const MapView = dynamic(() => import("./MapView"), { ssr: false });
 
 interface SwipeableCardProps {
   listing: ApartmentListing;
@@ -27,11 +31,14 @@ export default function SwipeableCard({
   const [hasTriggered, setHasTriggered] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [pendingSwipe, setPendingSwipe] = useState<"left" | "right" | null>(null);
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const cardContentRef = useRef<HTMLDivElement>(null);
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0, 1, 1, 1, 0]);
-  
+
   // Swipe direction indicators
   const likeOpacity = useTransform(x, [0, 200], [0, 1]);
   const nopeOpacity = useTransform(x, [-200, 0], [1, 0]);
@@ -75,6 +82,37 @@ export default function SwipeableCard({
     setImageError(false);
   }, [imageIndex]);
 
+  // Geocode address when card becomes visible (index === 0)
+  useEffect(() => {
+    if (index === 0 && !coordinates && !isGeocoding) {
+      setIsGeocoding(true);
+      // Geocode the address using Nominatim
+      fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(listing.address)}&limit=1`,
+        {
+          headers: {
+            "User-Agent": "Haven App"
+          }
+        }
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.length > 0) {
+            setCoordinates({
+              lat: parseFloat(data[0].lat),
+              lng: parseFloat(data[0].lon),
+            });
+          }
+        })
+        .catch((error) => {
+          console.error("Error geocoding address:", error);
+        })
+        .finally(() => {
+          setIsGeocoding(false);
+        });
+    }
+  }, [index, listing.address, coordinates, isGeocoding]);
+
   const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (Math.abs(info.offset.x) > 100) {
       setExitX(info.offset.x > 0 ? 200 : -200);
@@ -108,6 +146,8 @@ export default function SwipeableCard({
       }}
       drag="x"
       dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.2}
+      dragDirectionLock
       onDragEnd={handleDragEnd}
       animate={{
         x: exitX,
@@ -128,10 +168,14 @@ export default function SwipeableCard({
       }}
       initial={false}
     >
-      <div className="w-full max-w-md mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden">
+      <div className="w-full max-w-md mx-auto h-full">
+        <div
+          ref={cardContentRef}
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-y-auto overscroll-contain h-full scrollbar-hide"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {/* Image Carousel */}
-          <div className="relative h-96 bg-gray-200 dark:bg-gray-700">
+          <div className="relative h-96 bg-gray-200 dark:bg-gray-700 flex-shrink-0">
             {!imageError && listing.images[imageIndex] ? (
               <Image
                 src={listing.images[imageIndex]}
@@ -164,7 +208,7 @@ export default function SwipeableCard({
                 </div>
               </div>
             )}
-            
+
             {/* Image Indicators */}
             {listing.images.length > 1 && (
               <>
@@ -172,13 +216,12 @@ export default function SwipeableCard({
                   {listing.images.map((_, i) => (
                     <div
                       key={i}
-                      className={`flex-1 h-1 rounded-full ${
-                        i === imageIndex ? "bg-white" : "bg-white/50"
-                      }`}
+                      className={`flex-1 h-1 rounded-full ${i === imageIndex ? "bg-white" : "bg-white/50"
+                        }`}
                     />
                   ))}
                 </div>
-                
+
                 {/* Navigation Arrows */}
                 <button
                   onClick={prevImage}
@@ -266,12 +309,58 @@ export default function SwipeableCard({
               )}
             </div>
 
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-6">
               Available from {new Date(listing.availableFrom).toLocaleDateString("en-US", {
                 month: "long",
                 day: "numeric",
                 year: "numeric",
               })}
+            </div>
+
+            {/* Map Section */}
+            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 pb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Location</h3>
+              {isGeocoding ? (
+                <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Loading map...</p>
+                  </div>
+                </div>
+              ) : coordinates ? (
+                <div className="h-64 rounded-xl overflow-hidden shadow-lg border-2 border-gray-200 dark:border-gray-700">
+                  <MapView
+                    lat={coordinates.lat}
+                    lng={coordinates.lng}
+                    address={listing.address}
+                  />
+                </div>
+              ) : (
+                <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+                  <div className="text-center text-gray-500 dark:text-gray-400">
+                    <svg
+                      className="w-12 h-12 mx-auto mb-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    <p className="text-sm">Unable to load map</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
