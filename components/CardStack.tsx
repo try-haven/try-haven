@@ -59,7 +59,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
   const handleSwipe = (direction: "left" | "right") => {
     // Calculate total items including ads
-    const totalItems = listings.length + Math.floor(listings.length / 10);
+    const totalItems = listings.length + Math.floor(listings.length / 5);
 
     if (currentIndex < totalItems) {
       // Check if current item is an ad
@@ -143,7 +143,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Calculate total items including ads
-      const totalItems = listings.length + Math.floor(listings.length / 10);
+      const totalItems = listings.length + Math.floor(listings.length / 5);
 
       // Only handle arrow keys when not at the end
       if (currentIndex >= totalItems) return;
@@ -291,7 +291,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
           listings.forEach((listing, idx) => {
             items.push({ type: "listing", data: listing });
             // Insert ad after every 10 listings (starting after the 10th)
-            if ((idx + 1) % 10 === 0 && idx < listings.length - 1) {
+            if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
               items.push({ type: "ad", adIndex: adCount++ });
             }
           });
@@ -305,7 +305,14 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
                 <AdCard
                   key={`ad-${item.adIndex}`}
                   onSkip={() => {
-                    setCurrentIndex((prev) => prev + 1);
+                    setCurrentIndex((prev) => {
+                      const nextIndex = prev + 1;
+                      // If we've reached the end after skipping ad, mark as completed
+                      if (nextIndex >= items.length && onCompletedChange) {
+                        onCompletedChange(true);
+                      }
+                      return nextIndex;
+                    });
                   }}
                   index={i}
                   total={Math.min(3, items.length - currentIndex)}

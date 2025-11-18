@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import DarkModeToggle from "./DarkModeToggle";
 import HavenLogo from "./HavenLogo";
 import { useUser } from "@/contexts/UserContext";
+import { generateAnonymousNickname } from "@/lib/nicknames";
 import dynamic from "next/dynamic";
 
 // Dynamically import the map component to avoid SSR issues
@@ -15,16 +16,23 @@ interface LikedListingsProps {
   likedListings: ApartmentListing[];
   onBack: () => void;
   onRemoveLike: (listingId: string) => void;
+  onBackToHome?: () => void;
 }
 
-export default function LikedListings({ likedListings, onBack, onRemoveLike }: LikedListingsProps) {
-  const { logOut } = useUser();
+export default function LikedListings({ likedListings, onBack, onRemoveLike, onBackToHome }: LikedListingsProps) {
+  const { logOut, hasReviewedListing, markListingAsReviewed, user } = useUser();
   const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [userRating, setUserRating] = useState<number>(0);
+  const [userReview, setUserReview] = useState<string>("");
+  const [originalReview, setOriginalReview] = useState<string>("");
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [isAnonymous, setIsAnonymous] = useState(false);
+  const [userRatingData, setUserRatingData] = useState<{ rating: number; userId: string } | null>(null);
   const cardContentRef = useRef<HTMLDivElement>(null);
 
   // Geocode address when listing is selected
@@ -80,6 +88,14 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
             </div>
             <div className="flex gap-4 items-center">
               <DarkModeToggle />
+              {onBackToHome && (
+                <button
+                  onClick={onBackToHome}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                >
+                  Back to Home
+                </button>
+              )}
               <button
                 onClick={onBack}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
@@ -89,7 +105,11 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
               <button
                 onClick={() => {
                   logOut();
-                  onBack();
+                  if (onBackToHome) {
+                    onBackToHome();
+                  } else {
+                    onBack();
+                  }
                 }}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
               >
@@ -137,10 +157,22 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
             </div>
             <div className="flex gap-4 items-center">
               <DarkModeToggle />
+              {onBackToHome && (
+                <button
+                  onClick={onBackToHome}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                >
+                  Back to Home
+                </button>
+              )}
               <button
                 onClick={() => {
                   logOut();
-                  setSelectedListing(null);
+                  if (onBackToHome) {
+                    onBackToHome();
+                  } else {
+                    setSelectedListing(null);
+                  }
                 }}
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
               >
@@ -289,11 +321,47 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                 </button>
               </div>
 
-              {/* Rating Section */}
+              {/* Rating & Reviews Section */}
               <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rating</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Rating & Reviews {reviews.length > 0 && `(${reviews.length})`}
+                  </h3>
+                  {user && (
+                    <button
+                      onClick={() => {
+                        setShowReviewForm(!showReviewForm);
+                        // Load user's existing rating/review if they've submitted one
+                        if (!showReviewForm) {
+                          if (userRatingData) {
+                            setUserRating(userRatingData.rating);
+                          }
+                          // Load existing review if user has one
+                          const existingReview = reviews.find(r => r.userName === user.username);
+                          if (existingReview) {
+                            setUserReview(existingReview.comment);
+                            setOriginalReview(existingReview.comment);
+                            setUserRating(existingReview.rating);
+                          } else {
+                            setUserReview("");
+                            setOriginalReview("");
+                          }
+                        } else {
+                          // Reset when closing
+                          setUserReview("");
+                          setOriginalReview("");
+                          setUserRating(0);
+                        }
+                      }}
+                      className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                    >
+                      {showReviewForm ? "Cancel" : hasReviewedListing(selectedListing.id) ? "Edit Rating/Review" : "Rate & Review"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Average Rating Display */}
                 <div className="flex items-center gap-4 mb-4">
-                  {/* Calculate average rating from reviews */}
                   {reviews.length > 0 ? (
                     <>
                       <div className="flex items-center">
@@ -353,13 +421,137 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
                     <p className="text-gray-500 dark:text-gray-400 text-sm">No ratings yet.</p>
                   )}
                 </div>
-              </div>
 
-              {/* Reviews Section */}
-              <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                  Reviews {reviews.length > 0 && `(${reviews.length})`}
-                </h3>
+                {/* Rating & Review Form */}
+                {showReviewForm && user && selectedListing && (
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                    <div className="mb-3">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                        Your Rating {userRating > 0 && `(${userRating} stars)`}
+                      </label>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setUserRating(star)}
+                            className="focus:outline-none"
+                            aria-label={`Rate ${star} stars`}
+                          >
+                            <svg
+                              className={`w-5 h-5 ${star <= userRating
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-gray-300 dark:text-gray-600"
+                                }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={isAnonymous}
+                          onChange={(e) => setIsAnonymous(e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        Post as anonymous
+                      </label>
+                    </div>
+                    <textarea
+                      value={userReview}
+                      onChange={(e) => setUserReview(e.target.value)}
+                      placeholder="Write your review (optional)..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (userRating > 0 && selectedListing) {
+                            // Save rating only
+                            const ratingData = {
+                              listingId: selectedListing.id,
+                              rating: userRating,
+                              userId: user.username,
+                              date: new Date().toISOString(),
+                            };
+                            localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
+                            setUserRatingData({ rating: userRating, userId: user.username });
+                            markListingAsReviewed(selectedListing.id);
+                            setUserRating(0);
+                            setUserReview("");
+                            setOriginalReview("");
+                            setShowReviewForm(false);
+                            // Reload reviews to update average
+                            const storedReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
+                            setReviews(storedReviews ? JSON.parse(storedReviews) : []);
+                          }
+                        }}
+                        disabled={userRating === 0}
+                        className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {hasReviewedListing(selectedListing.id) ? "Update Rating" : "Submit Rating Only"}
+                      </button>
+                      {((userReview.trim() && userReview.trim() !== originalReview) || (!hasReviewedListing(selectedListing.id) && userReview.trim())) && (
+                        <button
+                          onClick={() => {
+                            if (userRating > 0 && selectedListing) {
+                              // Remove old review if exists
+                              const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
+                              const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
+                              const filteredReviews = allReviews.filter(r => r.userName !== user.username);
+
+                              const newReview: Review = {
+                                id: Date.now().toString(),
+                                userName: isAnonymous ? generateAnonymousNickname() : user.username,
+                                rating: userRating,
+                                comment: userReview.trim() || "No comment",
+                                date: new Date().toISOString(),
+                              };
+                              const updatedReviews = [...filteredReviews, newReview];
+                              setReviews(updatedReviews);
+
+                              localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
+
+                              // Save rating
+                              const ratingData = {
+                                listingId: selectedListing.id,
+                                rating: userRating,
+                                userId: user.username,
+                                date: new Date().toISOString(),
+                              };
+                              localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
+                              setUserRatingData({ rating: userRating, userId: user.username });
+
+                              markListingAsReviewed(selectedListing.id);
+
+                              setUserReview("");
+                              setOriginalReview("");
+                              setUserRating(0);
+                              setIsAnonymous(false);
+                              setShowReviewForm(false);
+                            }
+                          }}
+                          disabled={userRating === 0}
+                          className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {hasReviewedListing(selectedListing.id) ? "Update Review" : "Submit Rating & Review"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Reviews Section */}
+                <div className="mt-4">
+                  <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-3">
+                    Reviews {reviews.length > 0 && `(${reviews.length})`}
+                  </h4>
                 {reviews.length > 0 ? (
                   <div className="space-y-4">
                     {reviews.map((review) => (
@@ -461,6 +653,14 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
           </div>
           <div className="flex gap-4 items-center">
             <DarkModeToggle />
+            {onBackToHome && (
+              <button
+                onClick={onBackToHome}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+              >
+                Back to Home
+              </button>
+            )}
             <button
               onClick={onBack}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
@@ -470,7 +670,11 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike }: L
             <button
               onClick={() => {
                 logOut();
-                onBack();
+                if (onBackToHome) {
+                  onBackToHome();
+                } else {
+                  onBack();
+                }
               }}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
             >

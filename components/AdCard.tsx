@@ -15,15 +15,15 @@ export default function AdCard({ onSkip, index, total }: AdCardProps) {
     <motion.div
       className="absolute inset-0 flex items-center justify-center pointer-events-none"
       style={{
-        zIndex: total - index,
+        zIndex: total - index + 100, // Higher z-index to ensure it's visible
         pointerEvents: index === 0 ? "auto" : "none",
       }}
       initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
+      animate={{ opacity: index === 0 ? 1 : 0.5, scale: index === 0 ? 1 : 0.95 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="w-full max-w-md mx-auto h-full flex items-center justify-center">
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700 rounded-3xl shadow-2xl overflow-hidden p-8 text-white w-full max-w-md">
+      <div className="w-full max-w-md mx-auto h-full flex items-center justify-center pointer-events-auto">
+        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 dark:from-indigo-600 dark:to-purple-700 rounded-3xl shadow-2xl overflow-hidden p-8 text-white w-full max-w-md border-4 border-white dark:border-gray-800">
           <div className="text-center">
             <div className="text-4xl mb-4">📦</div>
             <h2 className="text-2xl font-bold mb-2">Moving Services</h2>

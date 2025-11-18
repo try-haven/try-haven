@@ -12,7 +12,7 @@ import HavenLogo from "@/components/HavenLogo";
 import { useUser } from "@/contexts/UserContext";
 import { fakeListings, ApartmentListing } from "@/lib/data";
 
-type View = "marketing" | "onboarding" | "address" | "commute" | "swipe" | "liked";
+type View = "marketing" | "onboarding" | "address" | "commute" | "swipe" | "liked" | "reviewed";
 type CommuteOption = "car" | "public-transit" | "walk" | "bike";
 
 export default function Home() {
@@ -54,16 +54,8 @@ export default function Home() {
     return (
       <OnboardingLanding
         onSignUp={() => {
-          // Check if user has already completed onboarding
-          const hasAddress = localStorage.getItem("haven_user_address");
-          const hasCommute = localStorage.getItem("haven_user_commute");
-          if (hasAddress && hasCommute) {
-            setView("swipe");
-          } else if (hasAddress) {
-            setView("commute");
-          } else {
-            setView("address");
-          }
+          // Always ask for preferences when signing up (new user)
+          setView("address");
         }}
         onLogIn={() => {
           // Check if user has already completed onboarding
@@ -84,28 +76,47 @@ export default function Home() {
 
   // Address input
   if (view === "address") {
+    // Load current address from localStorage if available
+    const currentAddress = userAddress || (typeof window !== 'undefined' ? localStorage.getItem("haven_user_address") || "" : "");
+    const isFromPreferences = typeof window !== 'undefined' ? localStorage.getItem("haven_user_commute") !== null : false;
     return (
       <AddressInput
         onNext={(address) => {
           setUserAddress(address);
-          localStorage.setItem("haven_user_address", address);
+          localStorage.setItem("haven_user_address", address); // Persist address
+          // Always go to commute after address (both in onboarding and preferences)
           setView("commute");
         }}
-        onBack={() => setView("onboarding")}
+        onBack={() => {
+          // If coming from preferences, go back to swipe; otherwise onboarding
+          if (isFromPreferences) {
+            setView("swipe");
+          } else {
+            setView("onboarding");
+          }
+        }}
+        initialAddress={currentAddress} // Pass current address for display
       />
     );
   }
 
   // Commute preference
   if (view === "commute") {
+    // Load current commute options from localStorage if available
+    const currentCommuteOptions = commuteOptions.length > 0 
+      ? commuteOptions 
+      : (typeof window !== 'undefined' 
+          ? (localStorage.getItem("haven_user_commute") ? JSON.parse(localStorage.getItem("haven_user_commute")!) : [])
+          : []);
     return (
       <CommutePreference
         onNext={(options) => {
           setCommuteOptions(options);
-          localStorage.setItem("haven_user_commute", JSON.stringify(options));
+          localStorage.setItem("haven_user_commute", JSON.stringify(options)); // Persist commute options
           setView("swipe");
         }}
         onBack={() => setView("address")}
+        initialOptions={currentCommuteOptions} // Pass current options for display
       />
     );
   }
@@ -124,6 +135,16 @@ export default function Home() {
         likedListings={likedListings}
         onBack={() => setView("swipe")}
         onRemoveLike={handleRemoveLike}
+        onBackToHome={() => setView("marketing")}
+      />
+    );
+  }
+
+  if (view === "reviewed") {
+    return (
+      <ReviewedListings
+        onBack={() => setView("swipe")}
+        onBackToHome={() => setView("marketing")}
       />
     );
   }
@@ -131,28 +152,31 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
       <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 relative z-50">
           <div className="flex items-center gap-3">
             <HavenLogo size="sm" showAnimation={false} />
             <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
           </div>
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-2 items-center">
             <DarkModeToggle />
-            <button
-              onClick={() => {
-                const hasAddress = localStorage.getItem("haven_user_address");
-                const hasCommute = localStorage.getItem("haven_user_commute");
-                if (hasAddress && hasCommute) {
-                  // Go to address page to modify preferences
-                  setView("address");
-                } else {
-                  setView("address");
-                }
-              }}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-            >
-              Preferences
-            </button>
+            {isLoggedIn && (
+              <>
+                <button
+                  onClick={() => {
+                    setView("address");
+                  }}
+                  className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                >
+                  Preferences
+                </button>
+                <button
+                  onClick={() => setView("reviewed")}
+                  className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                >
+                  My Reviews
+                </button>
+              </>
+            )}
             {likedIds.size > 0 && (
               <button
                 onClick={() => setView("liked")}

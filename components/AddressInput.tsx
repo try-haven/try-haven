@@ -25,10 +25,13 @@ interface AddressSuggestion {
 interface AddressInputProps {
   onNext: (address: string) => void;
   onBack?: () => void;
+  initialAddress?: string;
 }
 
-export default function AddressInput({ onNext, onBack }: AddressInputProps) {
-  const [address, setAddress] = useState("");
+export default function AddressInput({ onNext, onBack, initialAddress }: AddressInputProps) {
+  const [address, setAddress] = useState(initialAddress || "");
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [newAddress, setNewAddress] = useState("");
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -179,12 +182,27 @@ export default function AddressInput({ onNext, onBack }: AddressInputProps) {
 
   const handleNext = () => {
     if (address.trim()) {
-      onNext(address.trim());
+      if (initialAddress && address.trim() !== initialAddress) {
+        setNewAddress(address.trim());
+        setShowConfirm(true);
+      } else {
+        // If address hasn't changed but we have an initial address, still proceed
+        // This allows users to keep their current address
+        onNext(address.trim() || initialAddress);
+      }
+    } else if (initialAddress) {
+      // If no new address entered but we have an initial address, keep the current one
+      onNext(initialAddress);
     }
   };
 
+  const handleConfirm = () => {
+    onNext(newAddress);
+    setShowConfirm(false);
+  };
+
   return (
-    <div className="min-h-screen bg-teal-900 dark:bg-teal-950 flex flex-col py-8 px-6">
+    <div className="min-h-screen bg-indigo-50 dark:bg-gray-900 flex flex-col py-8 px-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -193,8 +211,16 @@ export default function AddressInput({ onNext, onBack }: AddressInputProps) {
       >
         {/* Header */}
         <h2 className="text-indigo-300 dark:text-indigo-300 text-xl text-center mb-6">
-          Enter your desired neighborhood or work address
+          {initialAddress ? "Update your desired neighborhood or work address" : "Enter your desired neighborhood or work address"}
         </h2>
+
+        {/* Current Address Display - More Prominent */}
+        {initialAddress && (
+          <div className="mb-6 p-6 bg-white dark:bg-gray-800 rounded-xl border-2 border-indigo-300 dark:border-indigo-600 shadow-lg">
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 uppercase tracking-wide">Current Address</p>
+            <p className="text-lg text-gray-900 dark:text-white font-bold">{initialAddress}</p>
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6">
           {/* Left side - Input and suggestions */}
@@ -223,6 +249,39 @@ export default function AddressInput({ onNext, onBack }: AddressInputProps) {
             </button>
 
             <div className="text-center text-indigo-200 dark:text-indigo-300 text-sm">or</div>
+
+            {/* Confirmation Dialog */}
+            {showConfirm && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Confirm Changes</h3>
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current:</p>
+                    <p className="text-gray-900 dark:text-white">{initialAddress || "None"}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2 mt-4">New:</p>
+                    <p className="text-gray-900 dark:text-white">{newAddress}</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowConfirm(false);
+                        setAddress(initialAddress || "");
+                      }}
+                      className="flex-1 py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirm}
+                      className="flex-1 py-2 px-4 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                    >
+                      Confirm
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
 
             {/* Input Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -299,7 +358,7 @@ export default function AddressInput({ onNext, onBack }: AddressInputProps) {
                     e.preventDefault();
                     handleNext();
                   }}
-                  disabled={!address.trim()}
+                  disabled={!address.trim() && !initialAddress}
                   className="flex-1 py-3 bg-indigo-400 dark:bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-300 dark:hover:bg-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next

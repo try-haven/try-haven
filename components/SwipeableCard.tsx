@@ -35,8 +35,10 @@ export default function SwipeableCard({
   const [pendingSwipe, setPendingSwipe] = useState<"left" | "right" | null>(null);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const { hasReviewedListing, markListingAsReviewed, user } = useUser();
   const [userRating, setUserRating] = useState<number>(0);
   const [userReview, setUserReview] = useState<string>("");
+  const [originalReview, setOriginalReview] = useState<string>("");
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(() => {
@@ -44,9 +46,27 @@ export default function SwipeableCard({
     const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
     return storedReviews ? JSON.parse(storedReviews) : (listing.reviews || []);
   });
+  const [userRatingData, setUserRatingData] = useState<{ rating: number; userId: string } | null>(() => {
+    // Load user's rating if exists - check localStorage directly since user might not be loaded yet
+    try {
+      const storedUser = localStorage.getItem("haven_user");
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        const stored = localStorage.getItem(`haven_rating_${listing.id}_${userData.username}`);
+        return stored ? JSON.parse(stored) : null;
+      }
+    } catch (error) {
+      // Ignore errors
+    }
+    return null;
+  });
   const cardContentRef = useRef<HTMLDivElement>(null);
-  const { hasReviewedListing, markListingAsReviewed, user } = useUser();
   const hasReviewed = hasReviewedListing(listing.id);
+
+  // Calculate average rating from reviews
+  const averageRating = reviews.length > 0
+    ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    : listing.averageRating || 0;
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-25, 25]);
@@ -330,79 +350,76 @@ export default function SwipeableCard({
               })}
             </div>
 
-            {/* Rating Section */}
-            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rating</h3>
-              <div className="flex items-center gap-4 mb-4">
-                {user && !hasReviewed && (
-                  <div className="flex items-center">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => {
-                          setUserRating(star);
-                          // Save rating immediately
-                          const ratingData = {
-                            listingId: listing.id,
-                            rating: star,
-                            userId: user.username,
-                            date: new Date().toISOString(),
-                          };
-                          localStorage.setItem(`haven_rating_${listing.id}_${user.username}`, JSON.stringify(ratingData));
-                          markListingAsReviewed(listing.id);
-                        }}
-                        className="focus:outline-none"
-                        aria-label={`Rate ${star} stars`}
-                      >
-                        <svg
-                          className={`w-6 h-6 ${star <= userRating
-                            ? "text-yellow-400 fill-yellow-400"
-                            : "text-gray-300 dark:text-gray-600"
-                            }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                {listing.averageRating && (
-                  <div className="text-sm text-gray-600 dark:text-gray-300">
-                    <span className="font-semibold">{listing.averageRating.toFixed(1)}</span>
-                    {listing.totalRatings && (
-                      <span className="text-gray-500 dark:text-gray-400">
-                        {" "}({listing.totalRatings} {listing.totalRatings === 1 ? "rating" : "ratings"})
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Reviews Section */}
+            {/* Rating & Reviews Section */}
             <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Reviews {reviews.length > 0 && `(${reviews.length})`}
+                  Rating & Reviews {reviews.length > 0 && `(${reviews.length})`}
                 </h3>
-                {user && !hasReviewed && (
+                {user && (
                   <button
-                    onClick={() => setShowReviewForm(!showReviewForm)}
+                    onClick={() => {
+                      setShowReviewForm(!showReviewForm);
+                      // Load user's existing rating/review if they've submitted one
+                      if (!showReviewForm) {
+                        if (userRatingData) {
+                          setUserRating(userRatingData.rating);
+                        }
+                        // Load existing review if user has one
+                        const existingReview = reviews.find(r => r.userName === user.username);
+                        if (existingReview) {
+                          setUserReview(existingReview.comment);
+                          setOriginalReview(existingReview.comment);
+                          setUserRating(existingReview.rating);
+                        } else {
+                          setUserReview("");
+                          setOriginalReview("");
+                        }
+                      } else {
+                        // Reset when closing
+                        setUserReview("");
+                        setOriginalReview("");
+                        setUserRating(0);
+                      }
+                    }}
                     className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                   >
-                    {showReviewForm ? "Cancel" : "Write Review"}
+                    {showReviewForm ? "Cancel" : hasReviewed ? "Edit Rating/Review" : "Rate & Review"}
                   </button>
                 )}
               </div>
 
-              {/* Review Form */}
+              {/* Average Rating Display */}
+              <div className="flex items-center gap-4 mb-4">
+                <div className="flex items-center">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <svg
+                      key={star}
+                      className={`w-6 h-6 ${star <= Math.round(averageRating)
+                        ? "text-yellow-400 fill-yellow-400"
+                        : "text-gray-300 dark:text-gray-600"
+                        }`}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  <span className="font-semibold">{averageRating.toFixed(1)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">
+                    {" "}({reviews.length} {reviews.length === 1 ? "rating" : "ratings"})
+                  </span>
+                </div>
+              </div>
+
+              {/* Rating & Review Form */}
               {showReviewForm && user && (
                 <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                   <div className="mb-3">
                     <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
-                      Your Rating
+                      Your Rating {userRating > 0 && `(${userRating} stars)`}
                     </label>
                     <div className="flex items-center gap-1">
                       {[1, 2, 3, 4, 5].map((star) => (
@@ -440,79 +457,128 @@ export default function SwipeableCard({
                   <textarea
                     value={userReview}
                     onChange={(e) => setUserReview(e.target.value)}
-                    placeholder="Write your review..."
+                    placeholder="Write your review (optional)..."
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
                     rows={3}
                   />
-                  <button
-                    onClick={() => {
-                      if (userRating > 0 && userReview.trim() && !hasReviewed) {
-                        const newReview: Review = {
-                          id: Date.now().toString(),
-                          userName: isAnonymous ? generateAnonymousNickname() : user.username,
-                          rating: userRating,
-                          comment: userReview,
-                          date: new Date().toISOString(),
-                        };
-                        const updatedReviews = [...reviews, newReview];
-                        setReviews(updatedReviews);
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (userRating > 0) {
+                          // Save rating only
+                          const ratingData = {
+                            listingId: listing.id,
+                            rating: userRating,
+                            userId: user.username,
+                            date: new Date().toISOString(),
+                          };
+                          localStorage.setItem(`haven_rating_${listing.id}_${user.username}`, JSON.stringify(ratingData));
+                          setUserRatingData({ rating: userRating, userId: user.username });
+                          markListingAsReviewed(listing.id);
+                          setUserRating(0);
+                          setUserReview("");
+                          setOriginalReview("");
+                          setShowReviewForm(false);
+                          // Reload reviews to update average
+                          const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
+                          setReviews(storedReviews ? JSON.parse(storedReviews) : []);
+                        }
+                      }}
+                      disabled={userRating === 0}
+                      className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {hasReviewed ? "Update Rating" : "Submit Rating Only"}
+                    </button>
+                    {((userReview.trim() && userReview.trim() !== originalReview) || (!hasReviewed && userReview.trim())) && (
+                      <button
+                        onClick={() => {
+                          if (userRating > 0) {
+                            // Remove old review if exists
+                            const listingReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
+                            const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
+                            const filteredReviews = allReviews.filter(r => r.userName !== user.username);
 
-                        // Store reviews in localStorage
-                        const listingReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
-                        const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
-                        allReviews.push(newReview);
-                        localStorage.setItem(`haven_listing_reviews_${listing.id}`, JSON.stringify(allReviews));
+                            const newReview: Review = {
+                              id: Date.now().toString(),
+                              userName: isAnonymous ? generateAnonymousNickname() : user.username,
+                              rating: userRating,
+                              comment: userReview.trim() || "No comment",
+                              date: new Date().toISOString(),
+                            };
+                            const updatedReviews = [...filteredReviews, newReview];
+                            setReviews(updatedReviews);
 
-                        // Mark listing as reviewed
-                        markListingAsReviewed(listing.id);
+                            localStorage.setItem(`haven_listing_reviews_${listing.id}`, JSON.stringify(updatedReviews));
 
-                        setUserReview("");
-                        setUserRating(0);
-                        setIsAnonymous(false);
-                        setShowReviewForm(false);
-                      }
-                    }}
-                    disabled={userRating === 0 || !userReview.trim() || hasReviewed}
-                    className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Submit Review
-                  </button>
+                            // Save rating
+                            const ratingData = {
+                              listingId: listing.id,
+                              rating: userRating,
+                              userId: user.username,
+                              date: new Date().toISOString(),
+                            };
+                            localStorage.setItem(`haven_rating_${listing.id}_${user.username}`, JSON.stringify(ratingData));
+                            setUserRatingData({ rating: userRating, userId: user.username });
+
+                            markListingAsReviewed(listing.id);
+
+                            setUserReview("");
+                            setOriginalReview("");
+                            setUserRating(0);
+                            setIsAnonymous(false);
+                            setShowReviewForm(false);
+                          }
+                        }}
+                        disabled={userRating === 0}
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {hasReviewed ? "Update Review" : "Submit Rating & Review"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
               {/* Reviews List */}
               {reviews.length > 0 ? (
                 <div className="space-y-4">
-                  {reviews.map((review) => (
-                    <div key={review.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <div className="font-semibold text-gray-900 dark:text-white">{review.userName}</div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <div className="flex">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <svg
-                                  key={star}
-                                  className={`w-4 h-4 ${star <= review.rating
-                                    ? "text-yellow-400 fill-yellow-400"
-                                    : "text-gray-300 dark:text-gray-600"
-                                    }`}
-                                  fill="currentColor"
-                                  viewBox="0 0 20 20"
-                                >
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
-                              ))}
+                  {reviews.map((review) => {
+                    // Check if this review is from the current user
+                    const isUserReview = user && review.userName === user.username;
+                    return (
+                      <div key={review.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <div className="font-semibold text-gray-900 dark:text-white">
+                              {review.userName}
+                              {isUserReview && <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(You)</span>}
                             </div>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              {new Date(review.date).toLocaleDateString()}
-                            </span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                  <svg
+                                    key={star}
+                                    className={`w-4 h-4 ${star <= review.rating
+                                      ? "text-yellow-400 fill-yellow-400"
+                                      : "text-gray-300 dark:text-gray-600"
+                                      }`}
+                                    fill="currentColor"
+                                    viewBox="0 0 20 20"
+                                  >
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                  </svg>
+                                ))}
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {new Date(review.date).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
                         </div>
+                        <p className="text-gray-700 dark:text-gray-300 mt-2">{review.comment}</p>
                       </div>
-                      <p className="text-gray-700 dark:text-gray-300 mt-2">{review.comment}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-gray-500 dark:text-gray-400 text-sm">No reviews yet. Be the first to review!</p>
