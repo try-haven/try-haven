@@ -52,27 +52,37 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
   // Sync completion state to parent component when all listings are completed
   useEffect(() => {
-    if (currentIndex >= listings.length && onCompletedChange && !initialCompleted) {
+    // Calculate items array to get total count including ads
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    let adCount = 0;
+    listings.forEach((listing, idx) => {
+      items.push({ type: "listing", data: listing });
+      if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
+        items.push({ type: "ad", adIndex: adCount++ });
+      }
+    });
+    const totalItems = items.length;
+    
+    if (currentIndex >= totalItems && onCompletedChange && !initialCompleted) {
       onCompletedChange(true);
     }
-  }, [currentIndex, listings.length, onCompletedChange, initialCompleted]);
+  }, [currentIndex, listings, onCompletedChange, initialCompleted]);
 
   const handleSwipe = (direction: "left" | "right") => {
-    // Calculate total items including ads
-    const totalItems = listings.length + Math.floor(listings.length / 5);
+    // Calculate items array
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    let adCount = 0;
+
+    listings.forEach((listing, idx) => {
+      items.push({ type: "listing", data: listing });
+      if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
+        items.push({ type: "ad", adIndex: adCount++ });
+      }
+    });
+
+    const totalItems = items.length;
 
     if (currentIndex < totalItems) {
-      // Check if current item is an ad
-      const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
-      let adCount = 0;
-
-      listings.forEach((listing, idx) => {
-        items.push({ type: "listing", data: listing });
-        if ((idx + 1) % 10 === 0 && idx < listings.length - 1) {
-          items.push({ type: "ad", adIndex: adCount++ });
-        }
-      });
-
       const currentItem = items[currentIndex];
 
       // If it's an ad, just advance (ads don't support swipe, only skip)
@@ -109,16 +119,52 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   };
 
   const handleLike = () => {
-    if (currentIndex < listings.length) {
-      const listingId = listings[currentIndex].id;
+    // Check if current item is an ad
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    let adCount = 0;
+
+    listings.forEach((listing, idx) => {
+      items.push({ type: "listing", data: listing });
+      if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
+        items.push({ type: "ad", adIndex: adCount++ });
+      }
+    });
+
+    const currentItem = items[currentIndex];
+    
+    // Don't handle like/pass if current item is an ad
+    if (currentItem?.type === "ad") {
+      return;
+    }
+
+    if (currentItem?.data) {
+      const listingId = currentItem.data.id;
       setTriggeredListingId(listingId);
       setTriggerSwipe("right");
     }
   };
 
   const handlePass = () => {
-    if (currentIndex < listings.length) {
-      const listingId = listings[currentIndex].id;
+    // Check if current item is an ad
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    let adCount = 0;
+
+    listings.forEach((listing, idx) => {
+      items.push({ type: "listing", data: listing });
+      if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
+        items.push({ type: "ad", adIndex: adCount++ });
+      }
+    });
+
+    const currentItem = items[currentIndex];
+    
+    // Don't handle like/pass if current item is an ad
+    if (currentItem?.type === "ad") {
+      return;
+    }
+
+    if (currentItem?.data) {
+      const listingId = currentItem.data.id;
       setTriggeredListingId(listingId);
       setTriggerSwipe("left");
     }
@@ -142,22 +188,21 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   // Handle arrow key navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Calculate total items including ads
-      const totalItems = listings.length + Math.floor(listings.length / 5);
-
-      // Only handle arrow keys when not at the end
-      if (currentIndex >= totalItems) return;
-
-      // Check if current item is an ad
+      // Calculate items array
       const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
       let adCount = 0;
 
       listings.forEach((listing, idx) => {
         items.push({ type: "listing", data: listing });
-        if ((idx + 1) % 10 === 0 && idx < listings.length - 1) {
+        if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
           items.push({ type: "ad", adIndex: adCount++ });
         }
       });
+
+      const totalItems = items.length;
+
+      // Only handle arrow keys when not at the end
+      if (currentIndex >= totalItems) return;
 
       const currentItem = items[currentIndex];
 
@@ -194,8 +239,32 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
     };
   }, [currentIndex, listings]);
 
-  // Calculate total items including ads
-  const totalItems = listings.length + Math.floor(listings.length / 10);
+  // Calculate items array to determine total
+  const calculateItems = () => {
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    let adCount = 0;
+    listings.forEach((listing, idx) => {
+      items.push({ type: "listing", data: listing });
+      if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
+        items.push({ type: "ad", adIndex: adCount++ });
+      }
+    });
+    return items;
+  };
+
+  const items = calculateItems();
+  const totalItems = items.length;
+
+  // Calculate how many listings have been viewed (not counting ads)
+  const getListingIndex = (itemIndex: number) => {
+    let listingCount = 0;
+    for (let i = 0; i < itemIndex && i < items.length; i++) {
+      if (items[i].type === "listing") {
+        listingCount++;
+      }
+    }
+    return listingCount;
+  };
 
   if (currentIndex >= totalItems) {
     return (
@@ -284,40 +353,37 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       {/* Card Stack */}
       <div className="relative w-full max-w-md mx-auto h-full overflow-hidden">
         {(() => {
-          // Insert ad card after every 10 listings
-          const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
-          let adCount = 0;
+          // Check if current item is an ad
+          const currentItem = items[currentIndex];
+          
+          // If current item is an ad, only show the ad (no cards behind it)
+          if (currentItem?.type === "ad") {
+            return (
+              <AdCard
+                key={`ad-${currentItem.adIndex}`}
+                onSkip={() => {
+                  setCurrentIndex((prev) => {
+                    const nextIndex = prev + 1;
+                    // If we've reached the end after skipping ad, mark as completed
+                    if (nextIndex >= items.length && onCompletedChange) {
+                      onCompletedChange(true);
+                    }
+                    return nextIndex;
+                  });
+                }}
+                index={0}
+                total={1}
+              />
+            );
+          }
 
-          listings.forEach((listing, idx) => {
-            items.push({ type: "listing", data: listing });
-            // Insert ad after every 10 listings (starting after the 10th)
-            if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
-              items.push({ type: "ad", adIndex: adCount++ });
-            }
-          });
-
-          // Filter to show only items from currentIndex onwards
+          // Otherwise, show cards normally (up to 3 cards in stack)
           const visibleItems = items.slice(currentIndex, currentIndex + 3);
 
           return visibleItems.map((item, i) => {
             if (item.type === "ad") {
-              return (
-                <AdCard
-                  key={`ad-${item.adIndex}`}
-                  onSkip={() => {
-                    setCurrentIndex((prev) => {
-                      const nextIndex = prev + 1;
-                      // If we've reached the end after skipping ad, mark as completed
-                      if (nextIndex >= items.length && onCompletedChange) {
-                        onCompletedChange(true);
-                      }
-                      return nextIndex;
-                    });
-                  }}
-                  index={i}
-                  total={Math.min(3, items.length - currentIndex)}
-                />
-              );
+              // This shouldn't happen since we check above, but handle it just in case
+              return null;
             } else if (item.data) {
               const isTriggeredCard = Boolean(triggerSwipe && item.data.id === triggeredListingId);
               return (
@@ -340,7 +406,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       {/* Progress Indicator */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
         <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700 dark:text-gray-200">
-          {currentIndex + 1} / {totalItems}
+          {items[currentIndex]?.type === "ad" ? getListingIndex(currentIndex) : getListingIndex(currentIndex) + 1} / {listings.length}
         </div>
         {likedListings.size > 0 && (
           <div className="bg-green-500/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg text-sm font-medium text-white flex items-center gap-2">

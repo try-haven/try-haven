@@ -7,6 +7,7 @@ import DarkModeToggle from "./DarkModeToggle";
 import HavenLogo from "./HavenLogo";
 import { useUser } from "@/contexts/UserContext";
 import { fakeListings } from "@/lib/data";
+import { generateAnonymousNickname } from "@/lib/nicknames";
 import dynamic from "next/dynamic";
 
 // Dynamically import the map component to avoid SSR issues
@@ -18,13 +19,19 @@ interface ReviewedListingsProps {
 }
 
 export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListingsProps) {
-  const { logOut, user } = useUser();
+  const { logOut, user, markListingAsReviewed } = useUser();
   const [reviewedListings, setReviewedListings] = useState<Array<{ listing: ApartmentListing; review: Review }>>([]);
   const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [userRating, setUserRating] = useState<number>(0);
+  const [userReview, setUserReview] = useState<string>("");
+  const [originalReview, setOriginalReview] = useState<string>("");
+  const [originalRating, setOriginalRating] = useState<number>(0);
+  const [isAnonymous, setIsAnonymous] = useState(false);
 
   // Load all reviewed listings
   useEffect(() => {
@@ -147,6 +154,12 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
                 setSelectedListing(null);
                 setSelectedReview(null);
                 setCoordinates(null);
+                setShowEditForm(false);
+                setUserReview("");
+                setOriginalReview("");
+                setUserRating(0);
+                setOriginalRating(0);
+                setIsAnonymous(false);
               }}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2"
             >
@@ -275,31 +288,235 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
 
               {/* Your Review */}
               <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Your Review</h3>
-                <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-800">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <svg
-                          key={star}
-                          className={`w-6 h-6 ${
-                            star <= selectedReview.rating
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-gray-300 dark:text-gray-600"
-                          }`}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(selectedReview.date).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="text-gray-700 dark:text-gray-300">{selectedReview.comment}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Your Review</h3>
+                  {user && (
+                    <button
+                      onClick={() => {
+                        setShowEditForm(!showEditForm);
+                        if (!showEditForm) {
+                          // Load existing review data
+                          setUserRating(selectedReview.rating);
+                          setUserReview(selectedReview.comment);
+                          setOriginalReview(selectedReview.comment);
+                          setOriginalRating(selectedReview.rating);
+                        } else {
+                          // Reset when closing
+                          setUserReview("");
+                          setOriginalReview("");
+                          setUserRating(0);
+                          setOriginalRating(0);
+                        }
+                      }}
+                      className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
+                    >
+                      {showEditForm ? "Cancel" : "Edit Review"}
+                    </button>
+                  )}
                 </div>
+                
+                {!showEditForm ? (
+                  <div className="p-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-800">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <svg
+                            key={star}
+                            className={`w-6 h-6 ${
+                              star <= selectedReview.rating
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-gray-300 dark:text-gray-600"
+                            }`}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                        ))}
+                      </div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {new Date(selectedReview.date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="text-gray-700 dark:text-gray-300">{selectedReview.comment}</p>
+                  </div>
+                ) : (
+                  <div className="p-6 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                    <div className="mb-3">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                        Your Rating {userRating > 0 && `(${userRating} stars)`}
+                      </label>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => setUserRating(star)}
+                            className="focus:outline-none"
+                            aria-label={`Rate ${star} stars`}
+                          >
+                            <svg
+                              className={`w-5 h-5 ${star <= userRating
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-gray-300 dark:text-gray-600"
+                                }`}
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="mb-3">
+                      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                        <input
+                          type="checkbox"
+                          checked={isAnonymous}
+                          onChange={(e) => setIsAnonymous(e.target.checked)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        Post as anonymous
+                      </label>
+                    </div>
+                    <textarea
+                      value={userReview}
+                      onChange={(e) => setUserReview(e.target.value)}
+                      placeholder="Write your review (optional)..."
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
+                      rows={3}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (selectedListing && user) {
+                            // Delete review and rating
+                            const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
+                            const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
+                            const filteredReviews = allReviews.filter(r => r.userName !== user.username);
+                            localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(filteredReviews));
+                            
+                            // Remove rating
+                            localStorage.removeItem(`haven_rating_${selectedListing.id}_${user.username}`);
+                            
+                            // Remove from reviewed listings
+                            const reviewedListings = localStorage.getItem(`haven_reviews_${user.username}`);
+                            if (reviewedListings) {
+                              const reviews: string[] = JSON.parse(reviewedListings);
+                              const filtered = reviews.filter(id => id !== selectedListing.id);
+                              localStorage.setItem(`haven_reviews_${user.username}`, JSON.stringify(filtered));
+                            }
+                            
+                            // Reload reviewed listings
+                            const reviewed: Array<{ listing: ApartmentListing; review: Review }> = [];
+                            fakeListings.forEach((listing) => {
+                              const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
+                              if (storedReviews) {
+                                const reviews: Review[] = JSON.parse(storedReviews);
+                                const userReview = reviews.find(r => r.userName === user.username);
+                                if (userReview) {
+                                  reviewed.push({ listing, review: userReview });
+                                }
+                              }
+                            });
+                            setReviewedListings(reviewed);
+                            
+                            // Reset and go back to list
+                            setSelectedListing(null);
+                            setSelectedReview(null);
+                            setUserReview("");
+                            setOriginalReview("");
+                            setUserRating(0);
+                            setOriginalRating(0);
+                            setIsAnonymous(false);
+                            setShowEditForm(false);
+                            setCoordinates(null);
+                          }
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        onClick={() => {
+                          // Discard changes - reset to original values
+                          setUserRating(originalRating);
+                          setUserReview(originalReview);
+                          setShowEditForm(false);
+                        }}
+                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        Discard
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (userRating > 0 && selectedListing && user) {
+                            // Determine what needs to be updated
+                            const ratingChanged = userRating !== originalRating;
+                            const reviewChanged = userReview.trim() !== originalReview;
+                            
+                            // Update review if it changed
+                            if (reviewChanged) {
+                              const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
+                              const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
+                              const filteredReviews = allReviews.filter(r => r.userName !== user.username);
+
+                              const newReview: Review = {
+                                id: Date.now().toString(),
+                                userName: isAnonymous ? generateAnonymousNickname() : user.username,
+                                rating: userRating,
+                                comment: userReview.trim() || "No comment",
+                                date: new Date().toISOString(),
+                              };
+                              const updatedReviews = [...filteredReviews, newReview];
+                              localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
+                              setSelectedReview(newReview);
+                            }
+
+                            // Update rating if it changed
+                            if (ratingChanged) {
+                              const ratingData = {
+                                listingId: selectedListing.id,
+                                rating: userRating,
+                                userId: user.username,
+                                date: new Date().toISOString(),
+                              };
+                              localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
+                              markListingAsReviewed(selectedListing.id);
+                            }
+
+                            // Update original values
+                            setOriginalRating(userRating);
+                            setOriginalReview(userReview.trim());
+                            
+                            // Reload reviewed listings
+                            const reviewed: Array<{ listing: ApartmentListing; review: Review }> = [];
+                            fakeListings.forEach((listing) => {
+                              const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
+                              if (storedReviews) {
+                                const reviews: Review[] = JSON.parse(storedReviews);
+                                const userReview = reviews.find(r => r.userName === user.username);
+                                if (userReview) {
+                                  reviewed.push({ listing, review: userReview });
+                                }
+                              }
+                            });
+                            setReviewedListings(reviewed);
+
+                            setUserReview("");
+                            setUserRating(0);
+                            setIsAnonymous(false);
+                            setShowEditForm(false);
+                          }
+                        }}
+                        disabled={userRating === 0}
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Update
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Map Section */}

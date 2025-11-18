@@ -7,6 +7,7 @@ import AddressInput from "@/components/AddressInput";
 import CommutePreference from "@/components/CommutePreference";
 import CardStack from "@/components/CardStack";
 import LikedListings from "@/components/LikedListings";
+import ReviewedListings from "@/components/ReviewedListings";
 import DarkModeToggle from "@/components/DarkModeToggle";
 import HavenLogo from "@/components/HavenLogo";
 import { useUser } from "@/contexts/UserContext";
@@ -16,7 +17,7 @@ type View = "marketing" | "onboarding" | "address" | "commute" | "swipe" | "like
 type CommuteOption = "car" | "public-transit" | "walk" | "bike";
 
 export default function Home() {
-  const { isLoggedIn, logOut } = useUser();
+  const { isLoggedIn, logOut, user } = useUser();
   const [view, setView] = useState<View>("marketing");
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [hasCompletedAll, setHasCompletedAll] = useState(false);
@@ -25,7 +26,38 @@ export default function Home() {
   const [userAddress, setUserAddress] = useState<string>("");
   const [commuteOptions, setCommuteOptions] = useState<CommuteOption[]>([]);
 
-  // Check if user is logged in on mount
+  // Load liked listings from localStorage when user changes
+  useEffect(() => {
+    if (user) {
+      const storedLikedIds = localStorage.getItem(`haven_liked_listings_${user.username}`);
+      if (storedLikedIds) {
+        try {
+          const parsedIds = JSON.parse(storedLikedIds);
+          setLikedIds(new Set(parsedIds));
+        } catch (error) {
+          console.error("Error parsing liked listings:", error);
+        }
+      } else {
+        // If no stored liked listings, start with empty set
+        setLikedIds(new Set());
+      }
+    } else {
+      // Clear liked listings when user logs out
+      setLikedIds(new Set());
+    }
+  }, [user]);
+
+  // Save liked listings to localStorage whenever they change
+  useEffect(() => {
+    if (user && likedIds.size > 0) {
+      localStorage.setItem(`haven_liked_listings_${user.username}`, JSON.stringify(Array.from(likedIds)));
+    } else if (user && likedIds.size === 0) {
+      // Remove from localStorage if no liked listings
+      localStorage.removeItem(`haven_liked_listings_${user.username}`);
+    }
+  }, [likedIds, user]);
+
+  // Check if user is logged in on initial mount only
   useEffect(() => {
     if (isLoggedIn && view === "marketing") {
       // User is logged in, skip onboarding if they've completed it before
@@ -40,13 +72,35 @@ export default function Home() {
         setView("address");
       }
     }
-  }, [isLoggedIn, view]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   const likedListings = fakeListings.filter((listing) => likedIds.has(listing.id));
 
   // Marketing landing page
   if (view === "marketing") {
-    return <LandingPage onGetStarted={() => setView("onboarding")} />;
+    return (
+      <LandingPage
+        onGetStarted={() => {
+          // Check if user is logged in
+          if (isLoggedIn) {
+            // Check if user has completed onboarding
+            const hasAddress = localStorage.getItem("haven_user_address");
+            const hasCommute = localStorage.getItem("haven_user_commute");
+            if (hasAddress && hasCommute) {
+              setView("swipe");
+            } else if (hasAddress) {
+              setView("commute");
+            } else {
+              setView("address");
+            }
+          } else {
+            // Not logged in, go to onboarding
+            setView("onboarding");
+          }
+        }}
+      />
+    );
   }
 
   // Onboarding landing (Sign Up/Log in)
@@ -165,13 +219,13 @@ export default function Home() {
                   onClick={() => {
                     setView("address");
                   }}
-                  className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                 >
                   Preferences
                 </button>
                 <button
                   onClick={() => setView("reviewed")}
-                  className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                 >
                   My Reviews
                 </button>
@@ -191,6 +245,7 @@ export default function Home() {
             <button
               onClick={() => {
                 logOut();
+                setLikedIds(new Set()); // Clear liked listings on logout
                 setView("marketing");
               }}
               className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"

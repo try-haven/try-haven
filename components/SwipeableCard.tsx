@@ -39,6 +39,7 @@ export default function SwipeableCard({
   const [userRating, setUserRating] = useState<number>(0);
   const [userReview, setUserReview] = useState<string>("");
   const [originalReview, setOriginalReview] = useState<string>("");
+  const [originalRating, setOriginalRating] = useState<number>(0);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [reviews, setReviews] = useState<Review[]>(() => {
@@ -62,6 +63,7 @@ export default function SwipeableCard({
   });
   const cardContentRef = useRef<HTMLDivElement>(null);
   const hasReviewed = hasReviewedListing(listing.id);
+  const hasUserReview = user ? reviews.some(r => r.userName === user.username) : false;
 
   // Calculate average rating from reviews
   const averageRating = reviews.length > 0
@@ -364,6 +366,9 @@ export default function SwipeableCard({
                       if (!showReviewForm) {
                         if (userRatingData) {
                           setUserRating(userRatingData.rating);
+                          setOriginalRating(userRatingData.rating);
+                        } else {
+                          setOriginalRating(0);
                         }
                         // Load existing review if user has one
                         const existingReview = reviews.find(r => r.userName === user.username);
@@ -371,20 +376,26 @@ export default function SwipeableCard({
                           setUserReview(existingReview.comment);
                           setOriginalReview(existingReview.comment);
                           setUserRating(existingReview.rating);
+                          setOriginalRating(existingReview.rating);
                         } else {
                           setUserReview("");
                           setOriginalReview("");
+                          if (!userRatingData) {
+                            setUserRating(0);
+                            setOriginalRating(0);
+                          }
                         }
                       } else {
                         // Reset when closing
                         setUserReview("");
                         setOriginalReview("");
                         setUserRating(0);
+                        setOriginalRating(0);
                       }
                     }}
                     className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                   >
-                    {showReviewForm ? "Cancel" : hasReviewed ? "Edit Rating/Review" : "Rate & Review"}
+                    {showReviewForm ? "Cancel" : hasUserReview ? "Edit Rating/Review" : "Add Rating/Review"}
                   </button>
                 )}
               </div>
@@ -462,38 +473,61 @@ export default function SwipeableCard({
                     rows={3}
                   />
                   <div className="flex gap-2">
+                    {hasReviewed && (
+                      <button
+                        onClick={() => {
+                          // Delete review and rating
+                          const listingReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
+                          const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
+                          const filteredReviews = allReviews.filter(r => r.userName !== user.username);
+                          setReviews(filteredReviews);
+                          localStorage.setItem(`haven_listing_reviews_${listing.id}`, JSON.stringify(filteredReviews));
+                          
+                          // Remove rating
+                          localStorage.removeItem(`haven_rating_${listing.id}_${user.username}`);
+                          setUserRatingData(null);
+                          
+                          // Remove from reviewed listings
+                          const reviewedListings = localStorage.getItem(`haven_reviews_${user.username}`);
+                          if (reviewedListings) {
+                            const reviews: string[] = JSON.parse(reviewedListings);
+                            const filtered = reviews.filter(id => id !== listing.id);
+                            localStorage.setItem(`haven_reviews_${user.username}`, JSON.stringify(filtered));
+                          }
+                          
+                          // Reset form
+                          setUserReview("");
+                          setOriginalReview("");
+                          setUserRating(0);
+                          setOriginalRating(0);
+                          setIsAnonymous(false);
+                          setShowReviewForm(false);
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        // Discard changes - reset to original values
+                        setUserRating(originalRating);
+                        setUserReview(originalReview);
+                        setShowReviewForm(false);
+                      }}
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Discard
+                    </button>
                     <button
                       onClick={() => {
                         if (userRating > 0) {
-                          // Save rating only
-                          const ratingData = {
-                            listingId: listing.id,
-                            rating: userRating,
-                            userId: user.username,
-                            date: new Date().toISOString(),
-                          };
-                          localStorage.setItem(`haven_rating_${listing.id}_${user.username}`, JSON.stringify(ratingData));
-                          setUserRatingData({ rating: userRating, userId: user.username });
-                          markListingAsReviewed(listing.id);
-                          setUserRating(0);
-                          setUserReview("");
-                          setOriginalReview("");
-                          setShowReviewForm(false);
-                          // Reload reviews to update average
-                          const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
-                          setReviews(storedReviews ? JSON.parse(storedReviews) : []);
-                        }
-                      }}
-                      disabled={userRating === 0}
-                      className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {hasReviewed ? "Update Rating" : "Submit Rating Only"}
-                    </button>
-                    {((userReview.trim() && userReview.trim() !== originalReview) || (!hasReviewed && userReview.trim())) && (
-                      <button
-                        onClick={() => {
-                          if (userRating > 0) {
-                            // Remove old review if exists
+                          // Determine what needs to be updated
+                          const ratingChanged = userRating !== originalRating;
+                          const reviewChanged = userReview.trim() !== originalReview;
+                          
+                          // Update review if it changed or exists
+                          if (reviewChanged || (userReview.trim() && !hasReviewed)) {
                             const listingReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
                             const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
                             const filteredReviews = allReviews.filter(r => r.userName !== user.username);
@@ -507,10 +541,11 @@ export default function SwipeableCard({
                             };
                             const updatedReviews = [...filteredReviews, newReview];
                             setReviews(updatedReviews);
-
                             localStorage.setItem(`haven_listing_reviews_${listing.id}`, JSON.stringify(updatedReviews));
+                          }
 
-                            // Save rating
+                          // Update rating if it changed or is new
+                          if (ratingChanged || !hasReviewed) {
                             const ratingData = {
                               listingId: listing.id,
                               rating: userRating,
@@ -519,22 +554,29 @@ export default function SwipeableCard({
                             };
                             localStorage.setItem(`haven_rating_${listing.id}_${user.username}`, JSON.stringify(ratingData));
                             setUserRatingData({ rating: userRating, userId: user.username });
-
                             markListingAsReviewed(listing.id);
-
-                            setUserReview("");
-                            setOriginalReview("");
-                            setUserRating(0);
-                            setIsAnonymous(false);
-                            setShowReviewForm(false);
                           }
-                        }}
-                        disabled={userRating === 0}
-                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {hasReviewed ? "Update Review" : "Submit Rating & Review"}
-                      </button>
-                    )}
+
+                          // Update original values
+                          setOriginalRating(userRating);
+                          setOriginalReview(userReview.trim());
+                          
+                          // Reset form
+                          setUserReview("");
+                          setUserRating(0);
+                          setIsAnonymous(false);
+                          setShowReviewForm(false);
+                          
+                          // Reload reviews to update average
+                          const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
+                          setReviews(storedReviews ? JSON.parse(storedReviews) : []);
+                        }
+                      }}
+                      disabled={userRating === 0}
+                      className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {hasReviewed ? "Update" : "Submit"}
+                    </button>
                   </div>
                 </div>
               )}

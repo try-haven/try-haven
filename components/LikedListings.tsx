@@ -30,9 +30,12 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
   const [userRating, setUserRating] = useState<number>(0);
   const [userReview, setUserReview] = useState<string>("");
   const [originalReview, setOriginalReview] = useState<string>("");
+  const [originalRating, setOriginalRating] = useState<number>(0);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [userRatingData, setUserRatingData] = useState<{ rating: number; userId: string } | null>(null);
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const cardContentRef = useRef<HTMLDivElement>(null);
 
   // Geocode address when listing is selected
@@ -67,15 +70,116 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
 
   // Reset coordinates and load reviews when listing changes
   useEffect(() => {
-    if (selectedListing) {
+    if (selectedListing && user) {
       setCoordinates(null);
       setImageIndex(0);
       setImageError(false);
       // Load reviews from localStorage
       const storedReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
       setReviews(storedReviews ? JSON.parse(storedReviews) : []);
+      // Load user's rating data
+      const storedRating = localStorage.getItem(`haven_rating_${selectedListing.id}_${user.username}`);
+      setUserRatingData(storedRating ? JSON.parse(storedRating) : null);
     }
-  }, [selectedListing?.id]);
+  }, [selectedListing?.id, user]);
+
+  // Check if user has a review (not just a rating)
+  const hasUserReview = selectedListing && user ? reviews.some(r => r.userName === user.username) : false;
+
+  // Handle navbar visibility on scroll
+  useEffect(() => {
+    if (!selectedListing || !cardContentRef.current) return;
+
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = cardContentRef.current?.scrollTop || 0;
+          
+          if (currentScrollY > lastScrollY && currentScrollY > 20) {
+            // Scrolling down - hide navbar
+            setIsNavbarVisible(false);
+          } else if (currentScrollY < lastScrollY || currentScrollY <= 20) {
+            // Scrolling up or near top - show navbar
+            setIsNavbarVisible(true);
+          }
+          
+          setLastScrollY(currentScrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    const cardElement = cardContentRef.current;
+    cardElement?.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      cardElement?.removeEventListener('scroll', handleScroll);
+    };
+  }, [selectedListing, lastScrollY]);
+
+  // Reset scroll position and navbar visibility when listing changes
+  useEffect(() => {
+    if (selectedListing && cardContentRef.current) {
+      cardContentRef.current.scrollTop = 0;
+      setLastScrollY(0);
+      setIsNavbarVisible(true);
+    }
+  }, [selectedListing]);
+
+  // Handle keyboard navigation when viewing a listing
+  useEffect(() => {
+    if (!selectedListing || likedListings.length <= 1) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't handle if user is typing in an input/textarea
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      const currentIndex = likedListings.findIndex(listing => listing.id === selectedListing.id);
+      const hasPrevious = currentIndex > 0;
+      const hasNext = currentIndex < likedListings.length - 1;
+
+      if (event.key === "ArrowLeft" && hasPrevious) {
+        event.preventDefault();
+        const prevListing = likedListings[currentIndex - 1];
+        setSelectedListing(prevListing);
+        setImageIndex(0);
+        setImageError(false);
+        setCoordinates(null);
+        setShowReviewForm(false);
+        setUserReview("");
+        setOriginalReview("");
+        setUserRating(0);
+        setOriginalRating(0);
+        setIsAnonymous(false);
+      } else if (event.key === "ArrowRight" && hasNext) {
+        event.preventDefault();
+        const nextListing = likedListings[currentIndex + 1];
+        setSelectedListing(nextListing);
+        setImageIndex(0);
+        setImageError(false);
+        setCoordinates(null);
+        setShowReviewForm(false);
+        setUserReview("");
+        setOriginalReview("");
+        setUserRating(0);
+        setOriginalRating(0);
+        setIsAnonymous(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [selectedListing, likedListings]);
 
   if (likedListings.length === 0) {
     return (
@@ -138,54 +242,134 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
   }
 
   if (selectedListing) {
+    // Find current index in liked listings
+    const currentIndex = likedListings.findIndex(listing => listing.id === selectedListing.id);
+    const hasPrevious = currentIndex > 0;
+    const hasNext = currentIndex < likedListings.length - 1;
+
+    const handlePrevious = () => {
+      if (hasPrevious) {
+        const prevListing = likedListings[currentIndex - 1];
+        setSelectedListing(prevListing);
+        setImageIndex(0);
+        setImageError(false);
+        setCoordinates(null);
+        setShowReviewForm(false);
+        setUserReview("");
+        setOriginalReview("");
+        setUserRating(0);
+        setOriginalRating(0);
+        setIsAnonymous(false);
+      }
+    };
+
+    const handleNext = () => {
+      if (hasNext) {
+        const nextListing = likedListings[currentIndex + 1];
+        setSelectedListing(nextListing);
+        setImageIndex(0);
+        setImageError(false);
+        setCoordinates(null);
+        setShowReviewForm(false);
+        setUserReview("");
+        setOriginalReview("");
+        setUserRating(0);
+        setOriginalRating(0);
+        setIsAnonymous(false);
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
         <div className="container mx-auto px-6 max-w-4xl">
-          <div className="flex items-center justify-between mb-8">
-            <button
-              onClick={() => setSelectedListing(null)}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to List
-            </button>
-            <div className="flex items-center gap-3">
-              <HavenLogo size="sm" showAnimation={false} />
-              <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
-            </div>
-            <div className="flex gap-4 items-center">
-              <DarkModeToggle />
-              {onBackToHome && (
+          <div 
+            className={`fixed top-0 left-0 right-0 z-40 bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-transform duration-300 ${
+              isNavbarVisible ? 'translate-y-0' : '-translate-y-full'
+            }`}
+          >
+            <div className="container mx-auto px-6 max-w-4xl py-4">
+              <div className="flex items-center justify-between">
                 <button
-                  onClick={onBackToHome}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  onClick={() => setSelectedListing(null)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2"
                 >
-                  Back to Home
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                  Back to List
                 </button>
-              )}
-              <button
-                onClick={() => {
-                  logOut();
-                  if (onBackToHome) {
-                    onBackToHome();
-                  } else {
-                    setSelectedListing(null);
-                  }
-                }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-              >
-                Log Out
-              </button>
+                <div className="flex items-center gap-3">
+                  <HavenLogo size="sm" showAnimation={false} />
+                  <h1 className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">Haven</h1>
+                </div>
+                <div className="flex gap-4 items-center">
+                  <DarkModeToggle />
+                  {onBackToHome && (
+                    <button
+                      onClick={onBackToHome}
+                      className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    >
+                      Back to Home
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      logOut();
+                      if (onBackToHome) {
+                        onBackToHome();
+                      } else {
+                        setSelectedListing(null);
+                      }
+                    }}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
+          <div className="mb-8 h-16"></div>
 
-          <div 
-            ref={cardContentRef}
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-y-auto overscroll-contain scrollbar-hide h-[calc(100vh-8rem)]"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
+          <div className="relative">
+            {/* Left Navigation Arrow */}
+            {likedListings.length > 1 && hasPrevious && (
+              <button
+                onClick={handlePrevious}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 z-50 w-14 h-14 bg-white dark:bg-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-gray-700 transition-all hover:scale-110 border-2 border-indigo-200 dark:border-indigo-700"
+                aria-label="Previous listing"
+              >
+                <svg className="w-7 h-7 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Right Navigation Arrow */}
+            {likedListings.length > 1 && hasNext && (
+              <button
+                onClick={handleNext}
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 z-50 w-14 h-14 bg-white dark:bg-gray-800 rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-50 dark:hover:bg-gray-700 transition-all hover:scale-110 border-2 border-indigo-200 dark:border-indigo-700"
+                aria-label="Next listing"
+              >
+                <svg className="w-7 h-7 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Position Indicator */}
+            {likedListings.length > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg text-sm font-medium text-gray-700 dark:text-gray-200">
+                {currentIndex + 1} / {likedListings.length}
+              </div>
+            )}
+
+            <div 
+              ref={cardContentRef}
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-y-auto overscroll-contain scrollbar-hide h-[calc(100vh-8rem)]"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
             {/* Image Carousel */}
             <div className="relative h-96 bg-gray-200 dark:bg-gray-700 flex-shrink-0">
               {!imageError && selectedListing.images[imageIndex] ? (
@@ -335,6 +519,9 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                         if (!showReviewForm) {
                           if (userRatingData) {
                             setUserRating(userRatingData.rating);
+                            setOriginalRating(userRatingData.rating);
+                          } else {
+                            setOriginalRating(0);
                           }
                           // Load existing review if user has one
                           const existingReview = reviews.find(r => r.userName === user.username);
@@ -342,20 +529,26 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                             setUserReview(existingReview.comment);
                             setOriginalReview(existingReview.comment);
                             setUserRating(existingReview.rating);
+                            setOriginalRating(existingReview.rating);
                           } else {
                             setUserReview("");
                             setOriginalReview("");
+                            if (!userRatingData) {
+                              setUserRating(0);
+                              setOriginalRating(0);
+                            }
                           }
                         } else {
                           // Reset when closing
                           setUserReview("");
                           setOriginalReview("");
                           setUserRating(0);
+                          setOriginalRating(0);
                         }
                       }}
                       className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium"
                     >
-                      {showReviewForm ? "Cancel" : hasReviewedListing(selectedListing.id) ? "Edit Rating/Review" : "Rate & Review"}
+                      {showReviewForm ? "Cancel" : hasUserReview ? "Edit Rating/Review" : "Add Rating/Review"}
                     </button>
                   )}
                 </div>
@@ -470,38 +663,64 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                       rows={3}
                     />
                     <div className="flex gap-2">
+                      {hasReviewedListing(selectedListing.id) && (
+                        <button
+                          onClick={() => {
+                            if (selectedListing) {
+                              // Delete review and rating
+                              const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
+                              const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
+                              const filteredReviews = allReviews.filter(r => r.userName !== user.username);
+                              setReviews(filteredReviews);
+                              localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(filteredReviews));
+                              
+                              // Remove rating
+                              localStorage.removeItem(`haven_rating_${selectedListing.id}_${user.username}`);
+                              setUserRatingData(null);
+                              
+                              // Remove from reviewed listings
+                              const reviewedListings = localStorage.getItem(`haven_reviews_${user.username}`);
+                              if (reviewedListings) {
+                                const reviews: string[] = JSON.parse(reviewedListings);
+                                const filtered = reviews.filter(id => id !== selectedListing.id);
+                                localStorage.setItem(`haven_reviews_${user.username}`, JSON.stringify(filtered));
+                              }
+                              
+                              // Reset form
+                              setUserReview("");
+                              setOriginalReview("");
+                              setUserRating(0);
+                              setOriginalRating(0);
+                              setIsAnonymous(false);
+                              setShowReviewForm(false);
+                            }
+                          }}
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                        >
+                          Delete
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          // Discard changes - reset to original values
+                          setUserRating(originalRating);
+                          setUserReview(originalReview);
+                          setShowReviewForm(false);
+                        }}
+                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        Discard
+                      </button>
                       <button
                         onClick={() => {
                           if (userRating > 0 && selectedListing) {
-                            // Save rating only
-                            const ratingData = {
-                              listingId: selectedListing.id,
-                              rating: userRating,
-                              userId: user.username,
-                              date: new Date().toISOString(),
-                            };
-                            localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
-                            setUserRatingData({ rating: userRating, userId: user.username });
-                            markListingAsReviewed(selectedListing.id);
-                            setUserRating(0);
-                            setUserReview("");
-                            setOriginalReview("");
-                            setShowReviewForm(false);
-                            // Reload reviews to update average
-                            const storedReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
-                            setReviews(storedReviews ? JSON.parse(storedReviews) : []);
-                          }
-                        }}
-                        disabled={userRating === 0}
-                        className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {hasReviewedListing(selectedListing.id) ? "Update Rating" : "Submit Rating Only"}
-                      </button>
-                      {((userReview.trim() && userReview.trim() !== originalReview) || (!hasReviewedListing(selectedListing.id) && userReview.trim())) && (
-                        <button
-                          onClick={() => {
-                            if (userRating > 0 && selectedListing) {
-                              // Remove old review if exists
+                            // Determine what needs to be updated
+                            const ratingChanged = userRating !== originalRating;
+                            const reviewChanged = userReview.trim() !== originalReview;
+                            const hasReviewed = hasReviewedListing(selectedListing.id);
+                            
+                            // Update review if it changed or exists
+                            if (reviewChanged || (userReview.trim() && !hasReviewed)) {
                               const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
                               const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
                               const filteredReviews = allReviews.filter(r => r.userName !== user.username);
@@ -515,10 +734,11 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                               };
                               const updatedReviews = [...filteredReviews, newReview];
                               setReviews(updatedReviews);
-
                               localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
+                            }
 
-                              // Save rating
+                            // Update rating if it changed or is new
+                            if (ratingChanged || !hasReviewed) {
                               const ratingData = {
                                 listingId: selectedListing.id,
                                 rating: userRating,
@@ -527,22 +747,29 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                               };
                               localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
                               setUserRatingData({ rating: userRating, userId: user.username });
-
                               markListingAsReviewed(selectedListing.id);
-
-                              setUserReview("");
-                              setOriginalReview("");
-                              setUserRating(0);
-                              setIsAnonymous(false);
-                              setShowReviewForm(false);
                             }
-                          }}
-                          disabled={userRating === 0}
-                          className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {hasReviewedListing(selectedListing.id) ? "Update Review" : "Submit Rating & Review"}
-                        </button>
-                      )}
+
+                            // Update original values
+                            setOriginalRating(userRating);
+                            setOriginalReview(userReview.trim());
+                            
+                            // Reset form
+                            setUserReview("");
+                            setUserRating(0);
+                            setIsAnonymous(false);
+                            setShowReviewForm(false);
+                            
+                            // Reload reviews to update average
+                            const storedReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
+                            setReviews(storedReviews ? JSON.parse(storedReviews) : []);
+                          }
+                        }}
+                        disabled={userRating === 0}
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {hasReviewedListing(selectedListing.id) ? "Update" : "Submit"}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -589,6 +816,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                 ) : (
                   <p className="text-gray-500 dark:text-gray-400 text-sm">No reviews yet.</p>
                 )}
+              </div>
               </div>
 
               {/* Map Section */}
@@ -637,6 +865,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                 )}
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
