@@ -113,14 +113,14 @@ export default function SharedNavbar({
   };
 
   return (
-    <div className="w-full flex items-center justify-between">
+    <div className="w-full flex items-center justify-between gap-2">
       {leftButton || (
-        <div className={layoutStyles.flexGap}>
+        <div className="flex items-center gap-2 md:gap-3 flex-shrink min-w-0">
           <HavenLogo size="sm" showAnimation={false} />
           <h1 className={textStyles.headingBrand}>Haven</h1>
         </div>
       )}
-      <div className={`${layoutStyles.flexGap2} flex-shrink-0`}>
+      <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
         <DarkModeToggle />
         {isLoggedIn && (
           <>
