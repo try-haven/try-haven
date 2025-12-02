@@ -24,8 +24,8 @@ export const textStyles = {
   headingLarge: "text-3xl font-bold text-gray-900 dark:text-white",
   headingMedium: "text-2xl font-bold text-gray-900 dark:text-white",
   headingSmall: "text-xl font-bold text-gray-900 dark:text-white",
-  headingBrand: "text-3xl font-bold text-indigo-600 dark:text-indigo-400",
-  headingBrandSmall: "text-2xl font-bold text-indigo-600 dark:text-indigo-400",
+  headingBrand: "text-xl md:text-3xl font-bold text-indigo-600 dark:text-indigo-400",
+  headingBrandSmall: "text-lg md:text-2xl font-bold text-indigo-600 dark:text-indigo-400",
   
   // Brand colors
   brand: "text-indigo-600 dark:text-indigo-400",
@@ -47,7 +47,9 @@ export const textStyles = {
 // Button styles
 export const buttonStyles = {
   // Navigation buttons
-  nav: "px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors",
+  nav: "px-3 md:px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-sm md:text-base",
+  navHideMobile: "hidden md:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors",
+  navHideSmall: "hidden sm:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors",
   navBordered: "px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border border-gray-300 dark:border-gray-600 rounded-full hover:border-indigo-600 dark:hover:border-indigo-400",
   
   // Primary button
@@ -77,7 +79,7 @@ export const buttonStyles = {
   location: "w-full py-3 px-4 bg-indigo-500 dark:bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
   
   // Liked listings button
-  liked: "px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors flex items-center gap-2 font-semibold",
+  liked: "px-3 md:px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors flex items-center gap-2 font-semibold text-sm md:text-base",
   
   // Option button (for commute preferences)
   option: "w-full py-4 rounded-xl font-semibold transition-all",

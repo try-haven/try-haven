@@ -307,51 +307,12 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   }
 
   return (
-    <div className="relative w-full h-[700px]">
+    <div className="relative w-full min-h-[600px] md:h-[700px] flex flex-col">
       {/* Ad Overlay */}
       <AdOverlay position="bottom-right" />
-      {/* Action Buttons on Sides - Positioned outside card container */}
-      <button
-        onClick={handlePass}
-        className="group absolute left-1/2 top-1/2 -translate-y-1/2 -translate-x-[320px] w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 z-50"
-        aria-label="Pass"
-      >
-        <svg
-          className="w-7 h-7 text-red-500 group-hover:text-white transition-colors"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M6 18L18 6M6 6l12 12"
-          />
-        </svg>
-      </button>
-      <button
-        onClick={handleLike}
-        className="group absolute right-1/2 top-1/2 -translate-y-1/2 translate-x-[320px] w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 z-50"
-        aria-label="Like"
-      >
-        <svg
-          className="w-7 h-7 text-green-500 group-hover:text-white transition-colors"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-      </button>
 
       {/* Card Stack */}
-      <div className="relative w-full max-w-md mx-auto h-full overflow-hidden">
+      <div className="relative w-full max-w-md mx-auto flex-1 overflow-hidden mb-4 md:mb-0">
         {(() => {
           // Check if current item is an ad
           const currentItem = items[currentIndex];
@@ -402,6 +363,89 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
           });
         })()}
       </div>
+
+      {/* Action Buttons */}
+      <div className="flex md:hidden justify-center gap-8 mt-6 px-4">
+        {/* Mobile: Buttons below card */}
+        <button
+          onClick={handlePass}
+          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500"
+          aria-label="Pass"
+        >
+          <svg
+            className="w-8 h-8 text-red-500 group-hover:text-white transition-colors"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+        <button
+          onClick={handleLike}
+          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500"
+          aria-label="Like"
+        >
+          <svg
+            className="w-8 h-8 text-green-500 group-hover:text-white transition-colors"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+            />
+          </svg>
+        </button>
+      </div>
+
+      {/* Desktop: Buttons on sides */}
+      <button
+        onClick={handlePass}
+        className="hidden md:flex group absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 z-50"
+        aria-label="Pass"
+      >
+        <svg
+          className="w-7 h-7 text-red-500 group-hover:text-white transition-colors"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+      <button
+        onClick={handleLike}
+        className="hidden md:flex group absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 z-50"
+        aria-label="Like"
+      >
+        <svg
+          className="w-7 h-7 text-green-500 group-hover:text-white transition-colors"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+          />
+        </svg>
+      </button>
 
       {/* Progress Indicator */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 flex gap-2">
