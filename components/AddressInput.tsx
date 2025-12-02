@@ -189,7 +189,7 @@ export default function AddressInput({ onNext, onBack, initialAddress }: Address
       } else {
         // If address hasn't changed but we have an initial address, still proceed
         // This allows users to keep their current address
-        onNext(address.trim() || initialAddress);
+        onNext(address.trim());
       }
     } else if (initialAddress) {
       // If no new address entered but we have an initial address, keep the current one
