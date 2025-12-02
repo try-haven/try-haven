@@ -33,9 +33,11 @@ export default function SharedNavbar({
   useEffect(() => {
     if (user && isLoggedIn) {
       const storedLikedIds = localStorage.getItem(`haven_liked_listings_${user.username}`);
+      console.log('[SharedNavbar] Loading liked count for user:', user.username, 'Stored:', storedLikedIds);
       if (storedLikedIds) {
         try {
           const parsedIds = JSON.parse(storedLikedIds);
+          console.log('[SharedNavbar] Parsed IDs:', parsedIds, 'Count:', parsedIds.length);
           setLikedCount(parsedIds.length);
         } catch (error) {
           console.error("Error parsing liked listings:", error);
