@@ -47,44 +47,44 @@ export const textStyles = {
 // Button styles
 export const buttonStyles = {
   // Navigation buttons
-  nav: "px-3 md:px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-sm md:text-base",
-  navHideMobile: "hidden md:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors",
-  navHideSmall: "hidden sm:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors",
-  navBordered: "px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border border-gray-300 dark:border-gray-600 rounded-full hover:border-indigo-600 dark:hover:border-indigo-400",
-  
+  nav: "px-3 md:px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors text-sm md:text-base cursor-pointer",
+  navHideMobile: "hidden md:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer",
+  navHideSmall: "hidden sm:block px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer",
+  navBordered: "px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors border border-gray-300 dark:border-gray-600 rounded-full hover:border-indigo-600 dark:hover:border-indigo-400 cursor-pointer",
+
   // Primary button
-  primary: "px-8 py-4 bg-indigo-600 text-white rounded-full text-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl",
-  primaryFull: "w-full py-4 bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-900 rounded-xl font-semibold text-lg hover:bg-indigo-700 dark:hover:bg-indigo-300 transition-colors",
-  primarySmall: "w-full text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded px-3 py-1.5 transition-colors",
-  primaryAction: "flex-1 py-3 bg-indigo-400 dark:bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-300 dark:hover:bg-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
-  primaryConfirm: "flex-1 py-2 px-4 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors",
-  
+  primary: "px-8 py-4 bg-indigo-600 text-white rounded-full text-lg font-semibold hover:bg-indigo-700 transition-colors shadow-lg hover:shadow-xl cursor-pointer",
+  primaryFull: "w-full py-4 bg-indigo-600 dark:bg-indigo-400 text-white dark:text-gray-900 rounded-xl font-semibold text-lg hover:bg-indigo-700 dark:hover:bg-indigo-300 transition-colors cursor-pointer",
+  primarySmall: "w-full text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded px-3 py-1.5 transition-colors cursor-pointer",
+  primaryAction: "flex-1 py-3 bg-indigo-400 dark:bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-300 dark:hover:bg-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer",
+  primaryConfirm: "flex-1 py-2 px-4 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors cursor-pointer",
+
   // Secondary button
-  secondary: "px-8 py-4 bg-white text-indigo-600 rounded-full text-lg font-semibold hover:bg-gray-50 transition-colors border-2 border-indigo-600",
-  secondaryCancel: "flex-1 py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors",
-  
+  secondary: "px-8 py-4 bg-white text-indigo-600 rounded-full text-lg font-semibold hover:bg-gray-50 transition-colors border-2 border-indigo-600 cursor-pointer",
+  secondaryCancel: "flex-1 py-2 px-4 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors cursor-pointer",
+
   // Link button
-  link: "text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300",
-  
+  link: "text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 cursor-pointer",
+
   // Back button
-  back: "px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2",
-  backText: "flex-1 py-3 text-indigo-300 dark:text-indigo-300 hover:text-indigo-200 dark:hover:text-indigo-200 transition-colors",
-  backTextDark: "flex-1 py-3 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors",
-  
+  back: "px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors flex items-center gap-2 cursor-pointer",
+  backText: "flex-1 py-3 text-indigo-300 dark:text-indigo-300 hover:text-indigo-200 dark:hover:text-indigo-200 transition-colors cursor-pointer",
+  backTextDark: "flex-1 py-3 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer",
+
   // Icon button
-  icon: "text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors flex items-center gap-2",
-  iconClose: "absolute -top-2 -right-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-1 transition-colors",
-  
+  icon: "text-indigo-600 dark:text-indigo-300 hover:text-indigo-700 dark:hover:text-indigo-200 transition-colors flex items-center gap-2 cursor-pointer",
+  iconClose: "absolute -top-2 -right-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-1 transition-colors cursor-pointer",
+
   // Location button
-  location: "w-full py-3 px-4 bg-indigo-500 dark:bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2",
-  
+  location: "w-full py-3 px-4 bg-indigo-500 dark:bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-600 dark:hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer",
+
   // Liked listings button
-  liked: "px-3 md:px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors flex items-center gap-2 font-semibold text-sm md:text-base",
-  
+  liked: "px-3 md:px-4 py-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors flex items-center gap-2 font-semibold text-sm md:text-base cursor-pointer",
+
   // Option button (for commute preferences)
-  option: "w-full py-4 rounded-xl font-semibold transition-all",
-  optionSelected: "bg-gray-700 dark:bg-gray-600 text-white border-2 border-indigo-400",
-  optionUnselected: "bg-white dark:bg-gray-800 text-gray-900 dark:text-white",
+  option: "w-full py-4 rounded-xl font-semibold transition-all cursor-pointer",
+  optionSelected: "bg-gray-700 dark:bg-gray-600 text-white border-2 border-indigo-400 cursor-pointer",
+  optionUnselected: "bg-white dark:bg-gray-800 text-gray-900 dark:text-white cursor-pointer",
 };
 
   // Input styles

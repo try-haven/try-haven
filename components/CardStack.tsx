@@ -369,7 +369,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         {/* Mobile: Buttons below card */}
         <button
           onClick={handlePass}
-          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500"
+          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 cursor-pointer"
           aria-label="Pass"
         >
           <svg
@@ -388,7 +388,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         </button>
         <button
           onClick={handleLike}
-          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500"
+          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 cursor-pointer"
           aria-label="Like"
         >
           <svg
@@ -410,7 +410,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       {/* Desktop: Buttons on sides */}
       <button
         onClick={handlePass}
-        className="hidden md:flex group absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 z-50"
+        className="hidden md:flex group absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 z-50 cursor-pointer"
         aria-label="Pass"
       >
         <svg
@@ -429,7 +429,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       </button>
       <button
         onClick={handleLike}
-        className="hidden md:flex group absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 z-50"
+        className="hidden md:flex group absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 z-50 cursor-pointer"
         aria-label="Like"
       >
         <svg
