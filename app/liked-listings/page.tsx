@@ -15,13 +15,10 @@ export default function LikedListingsPage() {
   // Load liked listings from localStorage
   useEffect(() => {
     if (user) {
-      console.log('[LikedListingsPage] Loading liked listings for user:', user.username);
       const storedLikedIds = localStorage.getItem(`haven_liked_listings_${user.username}`);
-      console.log('[LikedListingsPage] Stored liked IDs:', storedLikedIds);
       if (storedLikedIds) {
         try {
           const parsedIds = JSON.parse(storedLikedIds);
-          console.log('[LikedListingsPage] Parsed IDs:', parsedIds);
           setLikedIds(new Set(parsedIds));
         } catch (error) {
           console.error("Error parsing liked listings:", error);
@@ -56,6 +53,7 @@ export default function LikedListingsPage() {
       onBack={() => router.push("/swipe")}
       onRemoveLike={handleRemoveLike}
       onBackToHome={() => router.push("/")}
+      isLoading={isLoading}
     />
   );
 }

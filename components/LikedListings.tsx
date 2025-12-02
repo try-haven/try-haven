@@ -16,9 +16,10 @@ interface LikedListingsProps {
   onBack: () => void;
   onRemoveLike: (listingId: string) => void;
   onBackToHome?: () => void;
+  isLoading?: boolean;
 }
 
-export default function LikedListings({ likedListings, onBack, onRemoveLike, onBackToHome }: LikedListingsProps) {
+export default function LikedListings({ likedListings, onBack, onRemoveLike, onBackToHome, isLoading = false }: LikedListingsProps) {
   const { logOut, hasReviewedListing, markListingAsReviewed, user } = useUser();
   const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
@@ -185,11 +186,32 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
     };
   }, [selectedListing, likedListings]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-4 md:py-8">
+        <div className="container mx-auto px-4 md:px-6 max-w-4xl">
+          <div className="flex items-center justify-between mb-4 md:mb-8">
+            <SharedNavbar
+              onBackToHome={onBackToHome}
+              showBackToHome={!!onBackToHome}
+            />
+          </div>
+          <div className="flex flex-col items-center justify-center min-h-[600px] text-center p-8">
+            <div className="text-6xl mb-4 animate-pulse">💙</div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Loading your liked listings...
+            </h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (likedListings.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-8">
-        <div className="container mx-auto px-6 max-w-4xl">
-          <div className="flex items-center justify-between mb-8">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 py-4 md:py-8">
+        <div className="container mx-auto px-4 md:px-6 max-w-4xl">
+          <div className="flex items-center justify-between mb-4 md:mb-8">
             <SharedNavbar
               onBackToHome={onBackToHome}
               showBackToHome={!!onBackToHome}

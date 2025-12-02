@@ -31,11 +31,8 @@ export default function SwipePage() {
   // Save liked listings to localStorage whenever they change
   useEffect(() => {
     if (user && likedIds.size > 0) {
-      const idsArray = Array.from(likedIds);
-      console.log('[SwipePage] Saving liked listings for user:', user.username, 'IDs:', idsArray);
-      localStorage.setItem(`haven_liked_listings_${user.username}`, JSON.stringify(idsArray));
+      localStorage.setItem(`haven_liked_listings_${user.username}`, JSON.stringify(Array.from(likedIds)));
     } else if (user && likedIds.size === 0) {
-      console.log('[SwipePage] Removing liked listings for user:', user.username);
       localStorage.removeItem(`haven_liked_listings_${user.username}`);
     }
   }, [likedIds, user]);
