@@ -95,14 +95,12 @@ export default function SwipeableCard({
   // Trigger swipe animation when triggerSwipe prop changes
   useEffect(() => {
     if (triggerSwipe && isTriggeredCard && !hasTriggered && exitX === 0) {
-      const direction = triggerSwipe === "right" ? 200 : -200;
       setHasTriggered(true);
-      setExitX(direction);
       setPendingSwipe(triggerSwipe);
-      // Call onSwipe with delay to allow animation to complete
+      // Call onSwipe with delay to allow fade animation to complete
       setTimeout(() => {
         onSwipe(triggerSwipe);
-      }, 300); // Increased delay to allow slower animation to be visible
+      }, 300);
     }
   }, [triggerSwipe, isTriggeredCard, onSwipe, x, exitX, hasTriggered]);
 
@@ -191,16 +189,16 @@ export default function SwipeableCard({
       dragDirectionLock
       onDragEnd={handleDragEnd}
       animate={{
-        x: exitX,
-        opacity: exitX !== 0 ? 0 : 1,
+        x: pendingSwipe ? 0 : exitX,
+        opacity: (exitX !== 0 || pendingSwipe) ? 0 : 1,
         scale: scale,
         y: yOffset,
       }}
-      transition={{
-        type: "spring",
-        stiffness: pendingSwipe ? 100 : 300,
-        damping: pendingSwipe ? 20 : 30,
-      }}
+      transition={
+        pendingSwipe
+          ? { type: "tween", duration: 0.3, ease: "easeOut" }
+          : { type: "spring", stiffness: 300, damping: 30 }
+      }
       onAnimationComplete={() => {
         // Clear pending swipe after animation completes
         if (pendingSwipe) {
@@ -209,14 +207,13 @@ export default function SwipeableCard({
       }}
       initial={false}
     >
-      <div className="w-full max-w-md mx-auto h-full">
+      <div className="w-full max-w-[85vw] mx-auto h-full">
         <div
           ref={cardContentRef}
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-y-auto overscroll-contain h-full scrollbar-hide"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl h-full max-h-[90vh] flex flex-col md:flex-row overflow-hidden"
         >
-          {/* Image Carousel */}
-          <div className="relative h-96 bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+          {/* Image Carousel - Left 2/3 */}
+          <div className="relative h-40 md:h-full md:w-2/3 bg-gray-200 dark:bg-gray-700 flex-shrink-0">
             {!imageError && listing.images[imageIndex] ? (
               <Image
                 src={listing.images[imageIndex]}
@@ -308,61 +305,58 @@ export default function SwipeableCard({
             )}
           </div>
 
-          {/* Content */}
-          <div className="p-6">
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{listing.title}</h2>
-                <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">{listing.address}</p>
-              </div>
-              <div className="text-right">
-                <div className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-                  ${listing.price.toLocaleString()}
-                </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">/month</div>
+          {/* Right Side - 1/3 width, split vertically */}
+          <div className="md:w-1/3 flex flex-col overflow-y-auto">
+            {/* Top Half - Details */}
+            <div className="flex-1 p-4 overflow-y-auto border-b border-gray-200 dark:border-gray-700">
+            <div className="mb-3">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{listing.title}</h2>
+              <p className="text-gray-600 dark:text-gray-300 text-xs">{listing.address}</p>
+              <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-2">
+                ${listing.price.toLocaleString()}<span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>
               </div>
             </div>
 
-            <div className="flex gap-4 text-sm text-gray-600 dark:text-gray-300 mb-4">
-              <span>{listing.bedrooms} bed{listing.bedrooms !== 1 ? "s" : ""}</span>
+            <div className="flex gap-3 text-xs text-gray-600 dark:text-gray-300 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+              <span>{listing.bedrooms} bed</span>
               <span>•</span>
-              <span>{listing.bathrooms} bath{listing.bathrooms !== 1 ? "s" : ""}</span>
+              <span>{listing.bathrooms} bath</span>
               <span>•</span>
               <span>{listing.sqft.toLocaleString()} sqft</span>
             </div>
 
-            <p className={textStyles.bodyClamp2}>{listing.description}</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300 mb-3 line-clamp-3">{listing.description}</p>
 
             {/* Amenities */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {listing.amenities.slice(0, 4).map((amenity, i) => (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {listing.amenities.slice(0, 3).map((amenity, i) => (
                 <span
                   key={i}
-                  className={badgeStyles.default}
+                  className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs"
                 >
                   {amenity}
                 </span>
               ))}
-              {listing.amenities.length > 4 && (
-                <span className={badgeStyles.default}>
-                  +{listing.amenities.length - 4} more
+              {listing.amenities.length > 3 && (
+                <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
+                  +{listing.amenities.length - 3}
                 </span>
               )}
             </div>
 
-            <div className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-              Available from {new Date(listing.availableFrom).toLocaleDateString("en-US", {
-                month: "long",
+            <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Available {new Date(listing.availableFrom).toLocaleDateString("en-US", {
+                month: "short",
                 day: "numeric",
                 year: "numeric",
               })}
             </div>
 
             {/* Rating & Reviews Section */}
-            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Rating & Reviews {reviews.length > 0 && `(${reviews.length})`}
+            <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Reviews {reviews.length > 0 && `(${reviews.length})`}
                 </h3>
                 {user && (
                   <button
@@ -632,19 +626,20 @@ export default function SwipeableCard({
                 <p className="text-gray-500 dark:text-gray-400 text-sm">No reviews yet. Be the first to review!</p>
               )}
             </div>
+            </div>
 
-            {/* Map Section */}
-            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 pb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Location</h3>
+            {/* Bottom Half - Map */}
+            <div className="flex-1 p-4 flex flex-col">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Location</h3>
               {isGeocoding ? (
-                <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
                   <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Loading map...</p>
+                    <div className="w-6 h-6 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Loading...</p>
                   </div>
                 </div>
               ) : coordinates ? (
-                <div className="h-64 rounded-xl overflow-hidden shadow-lg border-2 border-gray-200 dark:border-gray-700">
+                <div className="flex-1 rounded-xl overflow-hidden shadow-lg border-2 border-gray-200 dark:border-gray-700">
                   <MapView
                     lat={coordinates.lat}
                     lng={coordinates.lng}
@@ -652,7 +647,7 @@ export default function SwipeableCard({
                   />
                 </div>
               ) : (
-                <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
+                <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-xl flex items-center justify-center">
                   <div className="text-center text-gray-500 dark:text-gray-400">
                     <svg
                       className="w-12 h-12 mx-auto mb-2"
@@ -673,7 +668,7 @@ export default function SwipeableCard({
                         d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                       />
                     </svg>
-                    <p className="text-sm">Unable to load map</p>
+                    <p className="text-xs">Unable to load map</p>
                   </div>
                 </div>
               )}

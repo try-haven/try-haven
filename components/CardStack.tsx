@@ -307,12 +307,12 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   }
 
   return (
-    <div className="relative w-full min-h-[600px] md:h-[700px] flex flex-col">
+    <div className="relative w-full min-h-[400px] flex flex-col">
       {/* Ad Overlay */}
       <AdOverlay position="bottom-right" />
 
       {/* Card Stack */}
-      <div className="relative w-full max-w-md mx-auto flex-1 overflow-hidden mb-4 md:mb-0">
+      <div className="relative w-full max-w-5xl mx-auto flex-1 overflow-hidden mb-4 md:mb-0">
         {(() => {
           // Check if current item is an ad
           const currentItem = items[currentIndex];
