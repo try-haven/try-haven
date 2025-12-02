@@ -369,11 +369,11 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         {/* Mobile: Buttons below card */}
         <button
           onClick={handlePass}
-          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 cursor-pointer"
+          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 cursor-pointer hover:[&>svg]:text-white hover:[&>svg]:scale-110"
           aria-label="Pass"
         >
           <svg
-            className="w-8 h-8 text-red-500 group-hover:text-white transition-colors"
+            className="w-8 h-8 text-red-500 transition-all pointer-events-none"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -388,11 +388,11 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         </button>
         <button
           onClick={handleLike}
-          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 cursor-pointer"
+          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 cursor-pointer hover:[&>svg]:text-white hover:[&>svg]:scale-110"
           aria-label="Like"
         >
           <svg
-            className="w-8 h-8 text-green-500 group-hover:text-white transition-colors"
+            className="w-8 h-8 text-green-500 transition-all pointer-events-none"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -410,11 +410,29 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       {/* Desktop: Buttons on sides */}
       <button
         onClick={handlePass}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgb(239 68 68)'; // red-500
+          e.currentTarget.style.borderColor = 'rgb(239 68 68)';
+          const svg = e.currentTarget.querySelector('svg');
+          if (svg) {
+            svg.style.color = 'white';
+            svg.style.transform = 'scale(1.1)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '';
+          e.currentTarget.style.borderColor = '';
+          const svg = e.currentTarget.querySelector('svg');
+          if (svg) {
+            svg.style.color = 'rgb(239 68 68)'; // red-500
+            svg.style.transform = 'scale(1)';
+          }
+        }}
         className="hidden md:flex group absolute left-4 lg:left-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 z-50 cursor-pointer"
         aria-label="Pass"
       >
         <svg
-          className="w-7 h-7 text-red-500 group-hover:text-white transition-colors"
+          className="w-7 h-7 text-red-500 transition-all pointer-events-none"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -429,11 +447,29 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       </button>
       <button
         onClick={handleLike}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = 'rgb(34 197 94)'; // green-500
+          e.currentTarget.style.borderColor = 'rgb(34 197 94)';
+          const svg = e.currentTarget.querySelector('svg');
+          if (svg) {
+            svg.style.color = 'white';
+            svg.style.transform = 'scale(1.1)';
+          }
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '';
+          e.currentTarget.style.borderColor = '';
+          const svg = e.currentTarget.querySelector('svg');
+          if (svg) {
+            svg.style.color = 'rgb(34 197 94)'; // green-500
+            svg.style.transform = 'scale(1)';
+          }
+        }}
         className="hidden md:flex group absolute right-4 lg:right-8 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white dark:bg-gray-800 shadow-xl items-center justify-center hover:scale-110 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 z-50 cursor-pointer"
         aria-label="Like"
       >
         <svg
-          className="w-7 h-7 text-green-500 group-hover:text-white transition-colors"
+          className="w-7 h-7 text-green-500 transition-all pointer-events-none"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
