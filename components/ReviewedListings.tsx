@@ -406,11 +406,12 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
                             if (reviewChanged) {
                               const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
                               const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
-                              const filteredReviews = allReviews.filter(r => r.userName !== user.username);
+                              const filteredReviews = allReviews.filter(r => r.userId !== user.username);
 
                               const newReview: Review = {
                                 id: Date.now().toString(),
                                 userName: isAnonymous ? generateAnonymousNickname() : user.username,
+                                userId: user.username,
                                 rating: userRating,
                                 comment: userReview.trim() || "No comment",
                                 date: new Date().toISOString(),
