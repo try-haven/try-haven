@@ -63,7 +63,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Swipe through verified apartments, find roommates, and discover your next home.
+            Swipe through personalized apartment listings tailored to your preferences and discover your next home.
           </motion.p>
 
           <motion.div
@@ -113,12 +113,12 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           </div>
 
           <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
-            <div className="text-4xl mb-4">👥</div>
+            <div className="text-4xl mb-4">✨</div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Roommate Matching
+              Personalized Listings
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Find compatible roommates based on your preferences and lifestyle.
+              Get recommendations tailored to your location, commute, and lifestyle preferences.
             </p>
           </div>
         </motion.div>
@@ -135,8 +135,8 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             Apartment Hunting Made Simple
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Haven is the modern way to find your next apartment. Swipe through verified listings,
-            get personalized recommendations, and connect with potential roommates—all in one place.
+            Haven is the modern way to find your next apartment. Swipe through personalized listings
+            based on your preferences, leave reviews, and discover the perfect place to call home.
           </p>
         </motion.div>
       </div>

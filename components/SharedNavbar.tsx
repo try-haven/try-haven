@@ -112,13 +112,20 @@ export default function SharedNavbar({
     router.push("/");
   };
 
+  const handleLogoClick = () => {
+    router.push("/?home=true");
+  };
+
   return (
     <div className="w-full flex items-center justify-between gap-2">
       {leftButton || (
-        <div className="flex items-center gap-2 md:gap-3 flex-shrink min-w-0">
+        <button
+          onClick={handleLogoClick}
+          className="flex items-center gap-2 md:gap-3 flex-shrink min-w-0 hover:opacity-80 transition-opacity cursor-pointer"
+        >
           <HavenLogo size="sm" showAnimation={false} />
           <h1 className={textStyles.headingBrand}>Haven</h1>
-        </div>
+        </button>
       )}
       <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
         <DarkModeToggle />
