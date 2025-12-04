@@ -38,6 +38,7 @@ export default function SwipeableCard({
   const { user } = useUser();
   const [reviews, setReviews] = useState<Review[]>(listing.reviews || []);
   const cardContentRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   // Load reviews from localStorage after mount (client-side only)
   useEffect(() => {
@@ -148,6 +149,38 @@ export default function SwipeableCard({
     setImageIndex((prev) => (prev - 1 + listing.images.length) % listing.images.length);
   };
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}/haven/listing?id=${listing.id}`;
+
+    // Track share in metrics
+    const metricsData = localStorage.getItem("haven_listing_metrics");
+    const metrics = metricsData ? JSON.parse(metricsData) : {};
+
+    if (!metrics[listing.id]) {
+      metrics[listing.id] = { listingId: listing.id, views: 0, swipeRights: 0, swipeLefts: 0, shares: 0 };
+    }
+
+    metrics[listing.id].shares = (metrics[listing.id].shares || 0) + 1;
+    localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: listing.title,
+          text: `Check out this listing: ${listing.title}`,
+          url: url,
+        });
+      } else {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+    }
+  };
+
   if (index >= total) return null;
 
   // Scale and offset for cards behind the top card
@@ -243,8 +276,12 @@ export default function SwipeableCard({
 
                 {/* Navigation Arrows */}
                 <button
-                  onClick={prevImage}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    prevImage();
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 transition-colors cursor-pointer z-10"
                   aria-label="Previous image"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,8 +289,12 @@ export default function SwipeableCard({
                   </svg>
                 </button>
                 <button
-                  onClick={nextImage}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 transition-colors cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    nextImage();
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 transition-colors cursor-pointer z-10"
                   aria-label="Next image"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,7 +338,25 @@ export default function SwipeableCard({
             {/* Top Half - Details */}
             <div className="flex-1 p-4 overflow-y-auto border-b border-gray-200 dark:border-gray-700">
             <div className="mb-3">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{listing.title}</h2>
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white flex-1">{listing.title}</h2>
+                <button
+                  onClick={handleShare}
+                  className="flex-shrink-0 p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                  aria-label="Share listing"
+                  title="Share listing"
+                >
+                  {copied ? (
+                    <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               <p className="text-gray-600 dark:text-gray-300 text-xs">{listing.address}</p>
               <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-2">
                 ${listing.price.toLocaleString()}<span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>

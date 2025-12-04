@@ -19,6 +19,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [userType, setUserType] = useState<"searcher" | "manager">("searcher");
   const [error, setError] = useState("");
   const [justSignedUp, setJustSignedUp] = useState(false);
 
@@ -44,7 +45,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
         setError("Please fill in all fields");
         return;
       }
-      const success = signUp(email, username, password);
+      const success = signUp(email, username, password, userType);
       if (success) {
         setJustSignedUp(true);
         onSignUp();
@@ -125,6 +126,43 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
             <>
               <div>
                 <label className={inputStyles.label}>
+                  I am a...
+                </label>
+                <div className="flex gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setUserType("searcher")}
+                    className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                      userType === "searcher"
+                        ? "border-blue-500 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                        : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-1">🔍</div>
+                      <div className="font-semibold">Apartment Searcher</div>
+                      <div className="text-xs opacity-70 mt-1">Find your perfect home</div>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUserType("manager")}
+                    className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                      userType === "manager"
+                        ? "border-blue-500 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400"
+                        : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-800"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="text-2xl mb-1">🏢</div>
+                      <div className="font-semibold">Property Manager</div>
+                      <div className="text-xs opacity-70 mt-1">List your properties</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className={inputStyles.label}>
                   Email
                 </label>
                 <input
@@ -149,7 +187,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
                   required={isSignUp}
                 />
                 <p className={`${textStyles.helperWithMargin}`}>
-                  This will be displayed in your reviews and comments
+                  This will be displayed in your {userType === "manager" ? "listings" : "reviews and comments"}
                 </p>
               </div>
             </>

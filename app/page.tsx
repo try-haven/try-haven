@@ -10,18 +10,22 @@ import { useState } from "react";
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoggedIn } = useUser();
+  const { isLoggedIn, isManager } = useUser();
   const [view, setView] = useState<"marketing" | "onboarding">("marketing");
   const isExplicitHome = searchParams.get("home") === "true";
 
-  // Check if user is logged in on initial mount and redirect to swipe
+  // Check if user is logged in on initial mount and redirect appropriately
   // But don't redirect if explicitly navigating to home via "Back to Home"
   useEffect(() => {
     if (isLoggedIn && view === "marketing" && !isExplicitHome) {
-      router.push("/swipe");
+      if (isManager) {
+        router.push("/manager/dashboard");
+      } else {
+        router.push("/swipe");
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, isExplicitHome]); // Only run when login status or explicit home changes
+  }, [isLoggedIn, isExplicitHome, isManager]); // Only run when login status or explicit home changes
 
   // Marketing landing page
   if (view === "marketing") {
@@ -29,7 +33,11 @@ function HomeContent() {
       <LandingPage
         onGetStarted={() => {
           if (isLoggedIn) {
-            router.push("/swipe");
+            if (isManager) {
+              router.push("/manager/dashboard");
+            } else {
+              router.push("/swipe");
+            }
           } else {
             setView("onboarding");
           }
@@ -43,12 +51,16 @@ function HomeContent() {
     return (
       <OnboardingLanding
         onSignUp={() => {
-          // New users are prompted for preferences
+          // New users are prompted for preferences or dashboard depending on type
           router.push("/preferences");
         }}
         onLogIn={() => {
-          // Existing users go straight to swipe (preferences already set)
-          router.push("/swipe");
+          // Existing users go to their respective dashboards
+          if (isManager) {
+            router.push("/manager/dashboard");
+          } else {
+            router.push("/swipe");
+          }
         }}
         onBack={() => setView("marketing")}
       />

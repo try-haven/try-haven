@@ -11,7 +11,7 @@ type CommuteOption = "car" | "public-transit" | "walk" | "bike";
 function PreferencesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, updatePreferences, isLoggedIn } = useUser();
+  const { user, updatePreferences, isLoggedIn, isManager } = useUser();
   const [step, setStep] = useState<"address" | "commute">("address");
   const [userAddress, setUserAddress] = useState<string>("");
 
@@ -33,10 +33,14 @@ function PreferencesContent() {
     if (!isLoggedIn) {
       router.push("/");
     }
-  }, [isLoggedIn, router]);
+    // Managers don't need preferences - redirect to dashboard
+    if (isManager) {
+      router.push("/manager/dashboard");
+    }
+  }, [isLoggedIn, isManager, router]);
 
-  // Don't render if not logged in
-  if (!isLoggedIn) {
+  // Don't render if not logged in or if user is a manager
+  if (!isLoggedIn || isManager) {
     return null;
   }
 

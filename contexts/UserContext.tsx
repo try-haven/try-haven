@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 type CommuteOption = "car" | "public-transit" | "walk" | "bike";
+type UserType = "searcher" | "manager";
 
 interface UserPreferences {
   address?: string;
@@ -14,13 +15,15 @@ interface User {
   username: string;
   password: string;
   name?: string;
+  userType: UserType;
   preferences?: UserPreferences;
 }
 
 interface UserContextType {
   user: User | null;
   isLoggedIn: boolean;
-  signUp: (email: string, username: string, password: string) => boolean;
+  isManager: boolean;
+  signUp: (email: string, username: string, password: string, userType?: UserType) => boolean;
   logIn: (username: string, password: string) => boolean;
   logOut: () => void;
   hasReviewedListing: (listingId: string) => boolean;
@@ -58,16 +61,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user, mounted]);
 
-  const signUp = (email: string, username: string, password: string): boolean => {
+  const signUp = (email: string, username: string, password: string, userType: UserType = "searcher"): boolean => {
     // Check if user already exists
     const existingUsers = localStorage.getItem("haven_users");
     const users: User[] = existingUsers ? JSON.parse(existingUsers) : [];
-    
+
     if (users.some((u) => u.email === email || u.username === username)) {
       return false; // User already exists
     }
 
-    const newUser: User = { email, username, password };
+    const newUser: User = { email, username, password, userType };
     users.push(newUser);
     localStorage.setItem("haven_users", JSON.stringify(users));
     setUser(newUser);
@@ -129,6 +132,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoggedIn: !!user,
+        isManager: user?.userType === "manager",
         signUp,
         logIn,
         logOut,

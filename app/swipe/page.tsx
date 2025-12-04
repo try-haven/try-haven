@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import CardStack from "@/components/CardStack";
 import SharedNavbar from "@/components/SharedNavbar";
 import { useUser } from "@/contexts/UserContext";
-import { fakeListings } from "@/lib/data";
+import { fakeListings, ApartmentListing } from "@/lib/data";
 
 export default function SwipePage() {
   const router = useRouter();
@@ -13,6 +13,46 @@ export default function SwipePage() {
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [hasCompletedAll, setHasCompletedAll] = useState(false);
   const [hasLoadedFromStorage, setHasLoadedFromStorage] = useState(false);
+  const [allListings, setAllListings] = useState<ApartmentListing[]>([]);
+
+  // Load all manager listings and combine with fake listings
+  useEffect(() => {
+    const loadAllListings = () => {
+      const managerListings: ApartmentListing[] = [];
+
+      // Get all users
+      const usersData = localStorage.getItem("haven_users");
+      if (usersData) {
+        try {
+          const users = JSON.parse(usersData);
+          // Load listings from all managers
+          users.forEach((u: any) => {
+            if (u.userType === "manager") {
+              const listings = localStorage.getItem(`haven_manager_listings_${u.username}`);
+              if (listings) {
+                const parsedListings = JSON.parse(listings);
+                managerListings.push(...parsedListings);
+              }
+            }
+          });
+        } catch (error) {
+          console.error("Error loading manager listings:", error);
+        }
+      }
+
+      // Combine and shuffle
+      const combined = [...fakeListings, ...managerListings];
+      // Simple shuffle
+      for (let i = combined.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [combined[i], combined[j]] = [combined[j], combined[i]];
+      }
+
+      setAllListings(combined);
+    };
+
+    loadAllListings();
+  }, []);
 
   // Load liked listings from localStorage
   useEffect(() => {
@@ -52,21 +92,27 @@ export default function SwipePage() {
             showBackToHome={true}
           />
         </div>
-        <CardStack
-          listings={fakeListings}
-          onLikedChange={setLikedIds}
-          initialLikedIds={likedIds}
-          onViewLiked={() => {
-            // Ensure localStorage is saved before navigating
-            if (user && likedIds.size > 0) {
-              localStorage.setItem(`haven_liked_listings_${user.username}`, JSON.stringify(Array.from(likedIds)));
-            }
-            // Small delay to ensure localStorage write completes
-            setTimeout(() => router.push("/liked-listings"), 50);
-          }}
-          initialCompleted={hasCompletedAll}
-          onCompletedChange={setHasCompletedAll}
-        />
+        {allListings.length > 0 ? (
+          <CardStack
+            listings={allListings}
+            onLikedChange={setLikedIds}
+            initialLikedIds={likedIds}
+            onViewLiked={() => {
+              // Ensure localStorage is saved before navigating
+              if (user && likedIds.size > 0) {
+                localStorage.setItem(`haven_liked_listings_${user.username}`, JSON.stringify(Array.from(likedIds)));
+              }
+              // Small delay to ensure localStorage write completes
+              setTimeout(() => router.push("/liked-listings"), 50);
+            }}
+            initialCompleted={hasCompletedAll}
+            onCompletedChange={setHasCompletedAll}
+          />
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-500 dark:text-gray-400">Loading listings...</div>
+          </div>
+        )}
       </div>
     </div>
   );

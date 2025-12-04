@@ -4,13 +4,47 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import LikedListings from "@/components/LikedListings";
 import { useUser } from "@/contexts/UserContext";
-import { fakeListings } from "@/lib/data";
+import { fakeListings, ApartmentListing } from "@/lib/data";
 
 export default function LikedListingsPage() {
   const router = useRouter();
   const { user, isLoggedIn } = useUser();
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+  const [allListings, setAllListings] = useState<ApartmentListing[]>([]);
+
+  // Load all listings (fake + manager listings)
+  useEffect(() => {
+    const loadAllListings = () => {
+      const managerListings: ApartmentListing[] = [];
+
+      // Get all users
+      const usersData = localStorage.getItem("haven_users");
+      if (usersData) {
+        try {
+          const users = JSON.parse(usersData);
+          // Load listings from all managers
+          users.forEach((u: any) => {
+            if (u.userType === "manager") {
+              const listings = localStorage.getItem(`haven_manager_listings_${u.username}`);
+              if (listings) {
+                const parsedListings = JSON.parse(listings);
+                managerListings.push(...parsedListings);
+              }
+            }
+          });
+        } catch (error) {
+          console.error("Error loading manager listings:", error);
+        }
+      }
+
+      // Combine fake listings and manager listings
+      const combined = [...fakeListings, ...managerListings];
+      setAllListings(combined);
+    };
+
+    loadAllListings();
+  }, []);
 
   // Load liked listings from localStorage
   useEffect(() => {
@@ -39,7 +73,7 @@ export default function LikedListingsPage() {
     }
   }, [likedIds, user, isLoading]);
 
-  const likedListings = fakeListings.filter((listing) => likedIds.has(listing.id));
+  const likedListings = allListings.filter((listing) => likedIds.has(listing.id));
 
   const handleRemoveLike = (listingId: string) => {
     setLikedIds((prev) => {

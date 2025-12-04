@@ -53,17 +53,17 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <span className={textStyles.heading}>Find Your Perfect</span>
-            <span className={`block ${textStyles.brand}`}>Apartment</span>
+            <span className={textStyles.heading}>Your Next</span>
+            <span className={`block ${textStyles.brand}`}>Home Awaits</span>
           </motion.h1>
-          
+
           <motion.p
             className={textStyles.subtitle}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Swipe through personalized apartment listings tailored to your preferences and discover your next home.
+            Find your perfect apartment or showcase your property to qualified renters. Haven makes apartment hunting and listing simple.
           </motion.p>
 
           <motion.div
@@ -76,12 +76,17 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               onClick={onGetStarted}
               className={buttonStyles.primary}
             >
-              Start Swiping
-            </button>
-            <button className={buttonStyles.secondary}>
-              Upload Listing
+              Get Started
             </button>
           </motion.div>
+          <motion.p
+            className="text-sm text-gray-600 dark:text-gray-400 mt-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.5 }}
+          >
+            Whether you're searching for an apartment or listing one, Haven has you covered
+          </motion.p>
         </div>
 
         {/* Feature Cards */}
@@ -95,30 +100,30 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
             <div className="text-4xl mb-4">🏠</div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Swipe to Discover
+              For Renters
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Browse through verified apartment listings with an intuitive swipe interface.
+              Swipe through personalized listings, save favorites, and leave reviews to help others.
             </p>
           </div>
 
           <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
-            <div className="text-4xl mb-4">🤖</div>
+            <div className="text-4xl mb-4">🏢</div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              AI Validated
+              For Managers
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              All listings are verified by AI to ensure quality and authenticity.
+              List your properties and track real-time metrics on views, likes, and engagement.
             </p>
           </div>
 
           <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-lg hover:shadow-xl transition-shadow">
-            <div className="text-4xl mb-4">✨</div>
+            <div className="text-4xl mb-4">📊</div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              Personalized Listings
+              Data-Driven Insights
             </h3>
             <p className="text-gray-600 dark:text-gray-300">
-              Get recommendations tailored to your location, commute, and lifestyle preferences.
+              Managers see detailed analytics while renters get personalized recommendations.
             </p>
           </div>
         </motion.div>
@@ -132,11 +137,14 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
           transition={{ duration: 0.6, delay: 0.8 }}
         >
           <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Apartment Hunting Made Simple
+            One Platform, Two Perspectives
           </h2>
+          <p className="text-lg text-gray-600 dark:text-gray-300 mb-4">
+            Haven connects apartment seekers with property managers through an intuitive, modern platform.
+          </p>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Haven is the modern way to find your next apartment. Swipe through personalized listings
-            based on your preferences, leave reviews, and discover the perfect place to call home.
+            Renters swipe through personalized listings and leave reviews. Managers showcase properties
+            and track engagement metrics. Everyone finds what they're looking for.
           </p>
         </motion.div>
       </div>

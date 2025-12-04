@@ -22,6 +22,52 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   const [triggerSwipe, setTriggerSwipe] = useState<"left" | "right" | null>(null);
   const [triggeredListingId, setTriggeredListingId] = useState<string | null>(null);
   const [swipeCount, setSwipeCount] = useState(0);
+  const [viewedListings, setViewedListings] = useState<Set<string>>(new Set());
+
+  // Track view metrics when a new listing is shown
+  useEffect(() => {
+    const items = calculateItems();
+    const currentItem = items[currentIndex];
+
+    if (currentItem?.type === "listing" && currentItem.data) {
+      const listingId = currentItem.data.id;
+
+      // Only track if not already viewed
+      if (!viewedListings.has(listingId)) {
+        trackView(listingId);
+        setViewedListings(prev => new Set(prev).add(listingId));
+      }
+    }
+  }, [currentIndex]);
+
+  const trackView = (listingId: string) => {
+    const metricsData = localStorage.getItem("haven_listing_metrics");
+    const metrics = metricsData ? JSON.parse(metricsData) : {};
+
+    if (!metrics[listingId]) {
+      metrics[listingId] = { listingId, views: 0, swipeRights: 0, swipeLefts: 0 };
+    }
+
+    metrics[listingId].views += 1;
+    localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+  };
+
+  const trackSwipe = (listingId: string, direction: "left" | "right") => {
+    const metricsData = localStorage.getItem("haven_listing_metrics");
+    const metrics = metricsData ? JSON.parse(metricsData) : {};
+
+    if (!metrics[listingId]) {
+      metrics[listingId] = { listingId, views: 0, swipeRights: 0, swipeLefts: 0 };
+    }
+
+    if (direction === "right") {
+      metrics[listingId].swipeRights += 1;
+    } else {
+      metrics[listingId].swipeLefts += 1;
+    }
+
+    localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+  };
 
   // Sync completion state when navigating back
   useEffect(() => {
@@ -113,8 +159,8 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       setCurrentIndex((prev) => prev + 1);
       setSwipeCount((prev) => prev + 1);
 
-      // Log swipe action (will be replaced with API call later)
-      console.log(`Swiped ${direction} on listing ${listingId}`);
+      // Track swipe metrics
+      trackSwipe(listingId, direction);
     }
   };
 
@@ -239,18 +285,20 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
     };
   }, [currentIndex, listings]);
 
-  // Calculate items array to determine total
-  const calculateItems = () => {
-    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
-    let adCount = 0;
-    listings.forEach((listing, idx) => {
-      items.push({ type: "listing", data: listing });
-      if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
-        items.push({ type: "ad", adIndex: adCount++ });
-      }
-    });
-    return items;
-  };
+  // Calculate items array to determine total (moved before useEffect)
+  const calculateItems = useMemo(() => {
+    return () => {
+      const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+      let adCount = 0;
+      listings.forEach((listing, idx) => {
+        items.push({ type: "listing", data: listing });
+        if ((idx + 1) % 5 === 0 && idx < listings.length - 1) {
+          items.push({ type: "ad", adIndex: adCount++ });
+        }
+      });
+      return items;
+    };
+  }, [listings]);
 
   const items = calculateItems();
   const totalItems = items.length;
