@@ -81,6 +81,18 @@ export default function SearchPage() {
     localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
     setReviews(updatedReviews);
 
+    // Track review event for trends
+    const eventsData = localStorage.getItem("haven_listing_metric_events");
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    events.push({
+      listingId: selectedListing.id,
+      timestamp: Date.now(),
+      type: 'review',
+      userId: user.username,
+      rating: userRating
+    });
+    localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
+
     // Mark as reviewed
     markListingAsReviewed(selectedListing.id);
 

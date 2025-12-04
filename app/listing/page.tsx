@@ -8,12 +8,14 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { textStyles, buttonStyles, badgeStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
+import { useUser } from "@/contexts/UserContext";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
 function ListingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useUser();
   const listingId = searchParams.get("id");
   const [listing, setListing] = useState<ApartmentListing | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
@@ -91,7 +93,7 @@ function ListingContent() {
     const url = window.location.href;
 
     // Track share in metrics
-    if (listingId) {
+    if (listingId && user) {
       const metricsData = localStorage.getItem("haven_listing_metrics");
       const metrics = metricsData ? JSON.parse(metricsData) : {};
 
@@ -101,6 +103,17 @@ function ListingContent() {
 
       metrics[listingId].shares = (metrics[listingId].shares || 0) + 1;
       localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+
+      // Store timestamped event for trends
+      const eventsData = localStorage.getItem("haven_listing_metric_events");
+      const events = eventsData ? JSON.parse(eventsData) : [];
+      events.push({
+        listingId,
+        timestamp: Date.now(),
+        type: 'share',
+        userId: user.username
+      });
+      localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
     }
 
     try {

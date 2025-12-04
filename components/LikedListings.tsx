@@ -710,6 +710,18 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                               const updatedReviews = [...filteredReviews, newReview];
                               setReviews(updatedReviews);
                               localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
+
+                              // Track review event for trends
+                              const eventsData = localStorage.getItem("haven_listing_metric_events");
+                              const events = eventsData ? JSON.parse(eventsData) : [];
+                              events.push({
+                                listingId: selectedListing.id,
+                                timestamp: Date.now(),
+                                type: 'review',
+                                userId: user.username,
+                                rating: userRating
+                              });
+                              localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
                             }
 
                             // Update rating if it changed or is new
@@ -723,6 +735,20 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                               localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
                               setUserRatingData({ rating: userRating, userId: user.username });
                               markListingAsReviewed(selectedListing.id);
+
+                              // Track review event for trends (only if review wasn't already tracked)
+                              if (!(reviewChanged || (userReview.trim() && !hasReviewed))) {
+                                const eventsData = localStorage.getItem("haven_listing_metric_events");
+                                const events = eventsData ? JSON.parse(eventsData) : [];
+                                events.push({
+                                  listingId: selectedListing.id,
+                                  timestamp: Date.now(),
+                                  type: 'review',
+                                  userId: user.username,
+                                  rating: userRating
+                                });
+                                localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
+                              }
                             }
 
                             // Update original values

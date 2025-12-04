@@ -5,6 +5,7 @@ import { ApartmentListing } from "@/lib/data";
 import SwipeableCard from "./SwipeableCard";
 import AdOverlay from "./AdOverlay";
 import AdCard from "./AdCard";
+import { useUser } from "@/contexts/UserContext";
 
 interface CardStackProps {
   listings: ApartmentListing[];
@@ -16,6 +17,7 @@ interface CardStackProps {
 }
 
 export default function CardStack({ listings, onLikedChange, initialLikedIds = new Set(), onViewLiked, initialCompleted = false, onCompletedChange }: CardStackProps) {
+  const { user } = useUser();
   const [currentIndex, setCurrentIndex] = useState(initialCompleted ? listings.length : 0);
   const [swipedListings, setSwipedListings] = useState<Set<string>>(new Set());
   const [likedListings, setLikedListings] = useState<Set<string>>(initialLikedIds);
@@ -41,6 +43,9 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   }, [currentIndex]);
 
   const trackView = (listingId: string) => {
+    if (!user) return;
+
+    // Update aggregated metrics
     const metricsData = localStorage.getItem("haven_listing_metrics");
     const metrics = metricsData ? JSON.parse(metricsData) : {};
 
@@ -50,9 +55,23 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
     metrics[listingId].views += 1;
     localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+
+    // Store timestamped event for trends
+    const eventsData = localStorage.getItem("haven_listing_metric_events");
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    events.push({
+      listingId,
+      timestamp: Date.now(),
+      type: 'view',
+      userId: user.username
+    });
+    localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
   };
 
   const trackSwipe = (listingId: string, direction: "left" | "right") => {
+    if (!user) return;
+
+    // Update aggregated metrics
     const metricsData = localStorage.getItem("haven_listing_metrics");
     const metrics = metricsData ? JSON.parse(metricsData) : {};
 
@@ -67,6 +86,17 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
     }
 
     localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+
+    // Store timestamped event for trends
+    const eventsData = localStorage.getItem("haven_listing_metric_events");
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    events.push({
+      listingId,
+      timestamp: Date.now(),
+      type: direction === "right" ? 'swipeRight' : 'swipeLeft',
+      userId: user.username
+    });
+    localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
   };
 
   // Sync completion state when navigating back

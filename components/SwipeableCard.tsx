@@ -153,16 +153,29 @@ export default function SwipeableCard({
     e.stopPropagation();
     const url = `${window.location.origin}/haven/listing?id=${listing.id}`;
 
-    // Track share in metrics
-    const metricsData = localStorage.getItem("haven_listing_metrics");
-    const metrics = metricsData ? JSON.parse(metricsData) : {};
+    if (user) {
+      // Track share in metrics
+      const metricsData = localStorage.getItem("haven_listing_metrics");
+      const metrics = metricsData ? JSON.parse(metricsData) : {};
 
-    if (!metrics[listing.id]) {
-      metrics[listing.id] = { listingId: listing.id, views: 0, swipeRights: 0, swipeLefts: 0, shares: 0 };
+      if (!metrics[listing.id]) {
+        metrics[listing.id] = { listingId: listing.id, views: 0, swipeRights: 0, swipeLefts: 0, shares: 0 };
+      }
+
+      metrics[listing.id].shares = (metrics[listing.id].shares || 0) + 1;
+      localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+
+      // Store timestamped event for trends
+      const eventsData = localStorage.getItem("haven_listing_metric_events");
+      const events = eventsData ? JSON.parse(eventsData) : [];
+      events.push({
+        listingId: listing.id,
+        timestamp: Date.now(),
+        type: 'share',
+        userId: user.username
+      });
+      localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
     }
-
-    metrics[listing.id].shares = (metrics[listing.id].shares || 0) + 1;
-    localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
 
     try {
       if (navigator.share) {

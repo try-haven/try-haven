@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import { ApartmentListing } from "@/lib/data";
 import { textStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
+import ListingTrendsChart from "@/components/ListingTrendsChart";
 
 interface ListingMetrics {
   listingId: string;
@@ -140,7 +141,7 @@ export default function ManagerDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <HavenLogo size="sm" />
+              <HavenLogo size="sm" showAnimation={false} />
               <h1 className={`${textStyles.heading} text-xl`}>Manager Dashboard</h1>
             </div>
             <div className="flex items-center gap-3">
@@ -248,8 +249,9 @@ export default function ManagerDashboard() {
                   {listings.map((listing) => {
                     const listingMetrics = getMetrics(listing.id);
                     return (
-                      <tr key={listing.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                        <td className="px-6 py-4">
+                      <Fragment key={listing.id}>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             {listing.images[0] && (
                               <img
@@ -312,6 +314,12 @@ export default function ManagerDashboard() {
                               Preview
                             </button>
                             <button
+                              onClick={() => router.push(`/manager/edit-listing?id=${listing.id}`)}
+                              className="text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 text-sm font-medium cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
                               onClick={() => handleShareListing(listing.id)}
                               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium cursor-pointer"
                             >
@@ -326,6 +334,12 @@ export default function ManagerDashboard() {
                           </div>
                         </td>
                       </tr>
+                      <tr>
+                        <td colSpan={9} className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
+                          <ListingTrendsChart listingId={listing.id} />
+                        </td>
+                      </tr>
+                    </Fragment>
                     );
                   })}
                 </tbody>

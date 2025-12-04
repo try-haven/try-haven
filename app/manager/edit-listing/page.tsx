@@ -1,15 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import { ApartmentListing } from "@/lib/data";
 import { textStyles, inputStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 
-export default function AddListingPage() {
+interface ListingChange {
+  listingId: string;
+  timestamp: number;
+  field: string;
+  oldValue: any;
+  newValue: any;
+}
+
+function EditListingContent() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoggedIn, isManager } = useUser();
+  const listingId = searchParams.get("id");
+  const [originalListing, setOriginalListing] = useState<ApartmentListing | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     address: "",
@@ -35,7 +46,50 @@ export default function AddListingPage() {
       router.push("/swipe");
       return;
     }
-  }, [isLoggedIn, isManager, router]);
+
+    // Load listing
+    if (listingId && user) {
+      const storedListings = localStorage.getItem(`haven_manager_listings_${user.username}`);
+      if (storedListings) {
+        const listings: ApartmentListing[] = JSON.parse(storedListings);
+        const listing = listings.find(l => l.id === listingId);
+        if (listing) {
+          setOriginalListing(listing);
+          setFormData({
+            title: listing.title,
+            address: listing.address,
+            price: listing.price.toString(),
+            bedrooms: listing.bedrooms.toString(),
+            bathrooms: listing.bathrooms.toString(),
+            sqft: listing.sqft.toString(),
+            description: listing.description || "",
+            availableFrom: listing.availableFrom || "",
+            amenities: listing.amenities.join(", "),
+            images: listing.images.join("\n"),
+          });
+        } else {
+          setError("Listing not found");
+        }
+      }
+    }
+  }, [isLoggedIn, isManager, router, user, listingId]);
+
+  const trackChange = (field: string, oldValue: any, newValue: any) => {
+    if (oldValue === newValue) return;
+
+    const change: ListingChange = {
+      listingId: listingId!,
+      timestamp: Date.now(),
+      field,
+      oldValue,
+      newValue,
+    };
+
+    const changesData = localStorage.getItem("haven_listing_changes");
+    const changes: ListingChange[] = changesData ? JSON.parse(changesData) : [];
+    changes.push(change);
+    localStorage.setItem("haven_listing_changes", JSON.stringify(changes));
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({
@@ -50,6 +104,12 @@ export default function AddListingPage() {
     setIsSubmitting(true);
 
     try {
+      if (!user || !listingId || !originalListing) {
+        setError("Invalid listing");
+        setIsSubmitting(false);
+        return;
+      }
+
       // Validate required fields
       if (!formData.title || !formData.address || !formData.price || !formData.bedrooms || !formData.bathrooms) {
         setError("Please fill in all required fields");
@@ -75,9 +135,9 @@ export default function AddListingPage() {
         .map(a => a.trim())
         .filter(a => a.length > 0);
 
-      // Create listing object
-      const newListing: ApartmentListing = {
-        id: `manager-${user?.username}-${Date.now()}`,
+      // Create updated listing object
+      const updatedListing: ApartmentListing = {
+        ...originalListing,
         title: formData.title,
         address: formData.address,
         price: parseFloat(formData.price),
@@ -87,25 +147,59 @@ export default function AddListingPage() {
         images: imageUrls,
         amenities: amenitiesList,
         description: formData.description,
-        availableFrom: formData.availableFrom || new Date().toISOString().split("T")[0],
+        availableFrom: formData.availableFrom || originalListing.availableFrom,
       };
 
-      // Save to localStorage
-      const existingListings = localStorage.getItem(`haven_manager_listings_${user?.username}`);
+      // Track changes for important fields
+      if (originalListing.price !== updatedListing.price) {
+        trackChange("price", originalListing.price, updatedListing.price);
+      }
+      if (originalListing.title !== updatedListing.title) {
+        trackChange("title", originalListing.title, updatedListing.title);
+      }
+      if (originalListing.bedrooms !== updatedListing.bedrooms) {
+        trackChange("bedrooms", originalListing.bedrooms, updatedListing.bedrooms);
+      }
+      if (originalListing.bathrooms !== updatedListing.bathrooms) {
+        trackChange("bathrooms", originalListing.bathrooms, updatedListing.bathrooms);
+      }
+
+      // Update in localStorage
+      const existingListings = localStorage.getItem(`haven_manager_listings_${user.username}`);
       const listings: ApartmentListing[] = existingListings ? JSON.parse(existingListings) : [];
-      listings.push(newListing);
-      localStorage.setItem(`haven_manager_listings_${user?.username}`, JSON.stringify(listings));
+      const index = listings.findIndex(l => l.id === listingId);
+      if (index !== -1) {
+        listings[index] = updatedListing;
+        localStorage.setItem(`haven_manager_listings_${user.username}`, JSON.stringify(listings));
+      }
 
       // Redirect to dashboard
       router.push("/manager/dashboard");
     } catch (err) {
-      setError("Failed to create listing. Please check your inputs.");
+      setError("Failed to update listing. Please check your inputs.");
       setIsSubmitting(false);
     }
   };
 
   if (!isLoggedIn || !isManager) {
     return null;
+  }
+
+  if (!originalListing) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🏠</div>
+          <p className={textStyles.headingSmall}>{error || "Loading..."}</p>
+          <button
+            onClick={() => router.push("/manager/dashboard")}
+            className={`${buttonStyles.primary} mt-4`}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -116,7 +210,7 @@ export default function AddListingPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <HavenLogo size="sm" showAnimation={false} />
-              <h1 className={`${textStyles.heading} text-xl`}>Add New Listing</h1>
+              <h1 className={`${textStyles.heading} text-xl`}>Edit Listing</h1>
             </div>
             <button
               onClick={() => router.push("/manager/dashboard")}
@@ -313,7 +407,7 @@ export default function AddListingPage() {
                 disabled={isSubmitting}
                 className={`${buttonStyles.primary} flex-1`}
               >
-                {isSubmitting ? "Creating Listing..." : "Create Listing"}
+                {isSubmitting ? "Updating Listing..." : "Update Listing"}
               </button>
               <button
                 type="button"
@@ -325,20 +419,19 @@ export default function AddListingPage() {
             </div>
           </form>
         </div>
-
-        {/* Helper Info */}
-        <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-          <h3 className="font-semibold text-blue-900 dark:text-blue-200 mb-2">
-            Tips for great listings:
-          </h3>
-          <ul className="space-y-1 text-sm text-blue-800 dark:text-blue-300">
-            <li>• Use high-quality images that showcase your property</li>
-            <li>• Write a detailed description highlighting unique features</li>
-            <li>• List all amenities to attract more interest</li>
-            <li>• Keep pricing competitive with similar properties in the area</li>
-          </ul>
-        </div>
       </div>
     </div>
+  );
+}
+
+export default function EditListingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-gray-500 dark:text-gray-400">Loading...</div>
+      </div>
+    }>
+      <EditListingContent />
+    </Suspense>
   );
 }

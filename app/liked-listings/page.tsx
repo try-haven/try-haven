@@ -81,6 +81,31 @@ export default function LikedListingsPage() {
       newSet.delete(listingId);
       return newSet;
     });
+
+    if (!user) return;
+
+    // Track the removal as a metric event
+    const metricsData = localStorage.getItem("haven_listing_metrics");
+    const metrics = metricsData ? JSON.parse(metricsData) : {};
+
+    if (!metrics[listingId]) {
+      metrics[listingId] = { listingId, views: 0, swipeRights: 0, swipeLefts: 0, shares: 0 };
+    }
+
+    // Decrement swipe rights count
+    metrics[listingId].swipeRights = Math.max(0, (metrics[listingId].swipeRights || 0) - 1);
+    localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+
+    // Store timestamped event for trends (track as an unlike)
+    const eventsData = localStorage.getItem("haven_listing_metric_events");
+    const events = eventsData ? JSON.parse(eventsData) : [];
+    events.push({
+      listingId,
+      timestamp: Date.now(),
+      type: 'unlike',
+      userId: user.username
+    });
+    localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
   };
 
   return (
