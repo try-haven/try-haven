@@ -278,7 +278,7 @@ export default function SwipeableCard({
       <div className="w-full max-w-[85vw] mx-auto h-full">
         <div
           ref={cardContentRef}
-          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl h-full max-h-[85vh] md:max-h-[90vh] lg:max-h-[93vh] flex flex-col md:flex-row overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl h-full max-h-[70vh] md:max-h-[90vh] lg:max-h-[93vh] flex flex-col md:flex-row overflow-hidden"
         >
           {/* Image Carousel - Left 2/3 */}
           <div className="relative h-40 md:h-full md:w-2/3 bg-gray-200 dark:bg-gray-700 flex-shrink-0">
