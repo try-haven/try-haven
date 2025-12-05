@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
 import { ApartmentListing } from "@/lib/data";
 import SwipeableCard from "./SwipeableCard";
 import AdOverlay from "./AdOverlay";
@@ -25,6 +26,12 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   const [triggeredListingId, setTriggeredListingId] = useState<string | null>(null);
   const [swipeCount, setSwipeCount] = useState(0);
   const [viewedListings, setViewedListings] = useState<Set<string>>(new Set());
+  const [lastSwipe, setLastSwipe] = useState<{
+    listingId: string;
+    direction: "left" | "right";
+    index: number;
+  } | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
 
   // Track view metrics when a new listing is shown
   useEffect(() => {
@@ -210,12 +217,86 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         });
       }
 
+      // Save this swipe for undo
+      setLastSwipe({
+        listingId,
+        direction,
+        index: currentIndex
+      });
+      setCanUndo(true);
+
       setCurrentIndex((prev) => prev + 1);
       setSwipeCount((prev) => prev + 1);
 
       // Track swipe metrics
       trackSwipe(listingId, direction);
+
+      // Auto-hide undo button after 5 seconds
+      setTimeout(() => {
+        setCanUndo(false);
+      }, 5000);
     }
+  };
+
+  const handleUndo = () => {
+    if (!lastSwipe || !canUndo) return;
+
+    const { listingId, direction, index } = lastSwipe;
+
+    // Go back to the previous card
+    setCurrentIndex(index);
+
+    // Remove from swiped listings
+    setSwipedListings((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(listingId);
+      return newSet;
+    });
+
+    // If it was a right swipe, remove from liked listings
+    if (direction === "right") {
+      setLikedListings((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(listingId);
+        return newSet;
+      });
+    }
+
+    // Reverse the metrics tracking
+    if (user) {
+      const metricsData = localStorage.getItem("haven_listing_metrics");
+      const metrics = metricsData ? JSON.parse(metricsData) : {};
+
+      if (metrics[listingId]) {
+        if (direction === "right") {
+          metrics[listingId].swipeRights = Math.max(0, metrics[listingId].swipeRights - 1);
+        } else {
+          metrics[listingId].swipeLefts = Math.max(0, metrics[listingId].swipeLefts - 1);
+        }
+        localStorage.setItem("haven_listing_metrics", JSON.stringify(metrics));
+      }
+
+      // Remove the last event for this user and listing
+      const eventsData = localStorage.getItem("haven_listing_metric_events");
+      const events = eventsData ? JSON.parse(eventsData) : [];
+
+      // Find and remove the most recent swipe event for this user and listing
+      const eventIndex = events.findLastIndex((e: any) =>
+        e.listingId === listingId &&
+        e.userId === user.username &&
+        (e.type === 'swipeRight' || e.type === 'swipeLeft')
+      );
+
+      if (eventIndex !== -1) {
+        events.splice(eventIndex, 1);
+        localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
+      }
+    }
+
+    // Clear undo state
+    setLastSwipe(null);
+    setCanUndo(false);
+    setSwipeCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleLike = () => {
@@ -467,46 +548,65 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       </div>
 
       {/* Action Buttons */}
-      <div className="flex md:hidden justify-center gap-8 mt-6 px-4">
+      <div className="flex flex-col md:hidden items-center gap-4 mt-6 px-4">
+        {/* Undo Button - Shows after swipe */}
+        {canUndo && (
+          <motion.button
+            onClick={handleUndo}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="px-6 py-2 bg-yellow-500 text-white rounded-full font-semibold hover:bg-yellow-600 active:scale-95 transition-all shadow-lg flex items-center gap-2"
+            aria-label="Undo"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            Undo
+          </motion.button>
+        )}
+
         {/* Mobile: Buttons below card */}
-        <button
-          onClick={handlePass}
-          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 cursor-pointer hover:[&>svg]:text-white hover:[&>svg]:scale-110"
-          aria-label="Pass"
-        >
-          <svg
-            className="w-8 h-8 text-red-500 transition-all pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        <div className="flex justify-center gap-8">
+          <button
+            onClick={handlePass}
+            className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-red-200 dark:border-red-800 hover:bg-red-500 hover:border-red-500 cursor-pointer hover:[&>svg]:text-white hover:[&>svg]:scale-110"
+            aria-label="Pass"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-        <button
-          onClick={handleLike}
-          className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 cursor-pointer hover:[&>svg]:text-white hover:[&>svg]:scale-110"
-          aria-label="Like"
-        >
-          <svg
-            className="w-8 h-8 text-green-500 transition-all pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+            <svg
+              className="w-8 h-8 text-red-500 transition-all pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={handleLike}
+            className="group w-16 h-16 rounded-full bg-white dark:bg-gray-800 shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all border-2 border-green-200 dark:border-green-800 hover:bg-green-500 hover:border-green-500 cursor-pointer hover:[&>svg]:text-white hover:[&>svg]:scale-110"
+            aria-label="Like"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-            />
-          </svg>
-        </button>
+            <svg
+              className="w-8 h-8 text-green-500 transition-all pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Desktop: Buttons on sides */}
@@ -599,6 +699,23 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
           </div>
         )}
       </div>
+
+      {/* Desktop Undo Button */}
+      {canUndo && (
+        <motion.button
+          onClick={handleUndo}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          className="hidden md:flex absolute bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 bg-yellow-500 text-white rounded-full font-semibold hover:bg-yellow-600 active:scale-95 transition-all shadow-xl items-center gap-2"
+          aria-label="Undo"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+          </svg>
+          Undo Last Swipe
+        </motion.button>
+      )}
     </div>
   );
 }
