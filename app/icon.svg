@@ -1,0 +1,11 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Main circular background -->
+  <circle cx="32" cy="32" r="32" fill="#818CF8"/>
+
+  <!-- House icon -->
+  <path d="M32 16L18 28V44C18 45.1 18.9 46 20 46H28V36H36V46H44C45.1 46 46 45.1 46 44V28L32 16Z" fill="white"/>
+
+  <!-- Location pin overlay -->
+  <circle cx="44" cy="20" r="8" fill="#4C1D95"/>
+  <path d="M44 24C42.9 24 42 23.1 42 22C42 20.9 42.9 20 44 20C45.1 20 46 20.9 46 22C46 23.1 45.1 24 44 24Z" fill="white"/>
+</svg>
