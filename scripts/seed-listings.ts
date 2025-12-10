@@ -388,23 +388,25 @@ async function seedDatabase() {
       throw authError;
     }
 
-    const managerId = authData?.user?.id;
+    let managerId = authData?.user?.id;
+    let demoManager;
 
     if (!managerId) {
       // User might already exist, try to get their ID
       const { data: existingUsers } = await supabase.auth.admin.listUsers();
-      const demoManager = existingUsers?.users.find(u => u.email === 'demo-manager@haven.app');
+      demoManager = existingUsers?.users.find(u => u.email === 'demo-manager@haven.app');
 
       if (!demoManager) {
         throw new Error('Could not create or find demo manager user');
       }
 
+      managerId = demoManager.id;
       console.log('✓ Demo manager already exists\n');
     } else {
       console.log('✓ Demo manager created\n');
     }
 
-    const finalManagerId = managerId || existingUsers?.users.find(u => u.email === 'demo-manager@haven.app')?.id;
+    const finalManagerId = managerId;
 
     // Step 2: Insert listings (let Supabase generate UUIDs)
     console.log('Inserting sample listings...');
