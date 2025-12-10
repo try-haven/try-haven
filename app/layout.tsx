@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DarkModeProvider } from "@/contexts/DarkModeContext";
 import { UserProvider } from "@/contexts/UserContext";
+import { ListingsProvider } from "@/contexts/ListingsContext";
+import { LikedListingsProvider } from "@/contexts/LikedListingsContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +33,11 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <DarkModeProvider>
-          <UserProvider>{children}</UserProvider>
+          <UserProvider>
+            <ListingsProvider>
+              <LikedListingsProvider>{children}</LikedListingsProvider>
+            </ListingsProvider>
+          </UserProvider>
         </DarkModeProvider>
       </body>
     </html>

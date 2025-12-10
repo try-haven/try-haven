@@ -8,6 +8,7 @@ import { textStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import ListingTrendsChart from "@/components/ListingTrendsChart";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import { getManagerListings, deleteListing as deleteListingFromDB } from "@/lib/listings";
 
 interface ListingMetrics {
   listingId: string;
@@ -40,13 +41,24 @@ export default function ManagerDashboard() {
     loadMetrics();
   }, [isLoggedIn, isManager, router, user]);
 
-  const loadListings = () => {
+  const loadListings = async () => {
     if (!user) return;
 
-    const storedListings = localStorage.getItem(`haven_manager_listings_${user.username}`);
-    if (storedListings) {
-      setListings(JSON.parse(storedListings));
-    }
+    const supabaseListings = await getManagerListings(user.id);
+    const convertedListings: ApartmentListing[] = supabaseListings.map(listing => ({
+      id: listing.id,
+      title: listing.title,
+      address: listing.address,
+      price: Number(listing.price),
+      bedrooms: listing.bedrooms,
+      bathrooms: listing.bathrooms,
+      sqft: listing.sqft,
+      images: listing.images || [],
+      amenities: listing.amenities || [],
+      description: listing.description,
+      availableFrom: listing.available_from,
+    }));
+    setListings(convertedListings);
   };
 
   const loadMetrics = () => {
@@ -58,15 +70,19 @@ export default function ManagerDashboard() {
     }
   };
 
-  const deleteListing = (listingId: string) => {
+  const deleteListing = async (listingId: string) => {
     if (!user) return;
 
     const confirmed = confirm("Are you sure you want to delete this listing?");
     if (!confirmed) return;
 
-    const updatedListings = listings.filter(l => l.id !== listingId);
-    setListings(updatedListings);
-    localStorage.setItem(`haven_manager_listings_${user.username}`, JSON.stringify(updatedListings));
+    const success = await deleteListingFromDB(listingId);
+    if (success) {
+      // Reload listings from database
+      await loadListings();
+    } else {
+      alert("Failed to delete listing. Please try again.");
+    }
   };
 
   const handleShareListing = async (listingId: string) => {

@@ -2,16 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { fakeListings, ApartmentListing, Review } from "@/lib/data";
+import { ApartmentListing, Review } from "@/lib/data";
 import { useUser } from "@/contexts/UserContext";
 import { generateAnonymousNickname } from "@/lib/nicknames";
 import SharedNavbar from "@/components/SharedNavbar";
 import Image from "next/image";
 import { textStyles, buttonStyles, inputStyles, containerStyles } from "@/lib/styles";
+import { useLikedListingsContext } from "@/contexts/LikedListingsContext";
+import { useListings } from "@/contexts/ListingsContext";
+import { getListingReviews, addReview, deleteReview, Review as SupabaseReview } from "@/lib/listings";
 
 export default function SearchPage() {
   const router = useRouter();
   const { user, isLoggedIn, markListingAsReviewed } = useUser();
+  const { likedCount } = useLikedListingsContext();
+  const { listings: allListings, isLoading: isLoadingListings } = useListings();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<ApartmentListing[]>([]);
   const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
@@ -42,12 +47,12 @@ export default function SearchPage() {
     }
 
     const query = searchQuery.toLowerCase();
-    const results = fakeListings.filter(listing =>
+    const results = allListings.filter(listing =>
       listing.address.toLowerCase().includes(query) ||
       listing.title.toLowerCase().includes(query)
     );
     setSearchResults(results);
-  }, [searchQuery]);
+  }, [searchQuery, allListings]);
 
   // Load recent price changes for search results
   useEffect(() => {
@@ -95,67 +100,81 @@ export default function SearchPage() {
   useEffect(() => {
     if (!selectedListing) return;
 
-    try {
-      const storedReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
-      if (storedReviews) {
-        setReviews(JSON.parse(storedReviews));
-      } else {
+    const loadReviews = async () => {
+      try {
+        const supabaseReviews = await getListingReviews(selectedListing.id);
+        // Convert Supabase reviews to app Review format
+        const convertedReviews: Review[] = supabaseReviews.map(r => ({
+          id: r.id,
+          userName: r.user_name,
+          userId: r.user_id,
+          rating: r.rating,
+          comment: r.comment,
+          date: r.created_at,
+        }));
+        setReviews(convertedReviews);
+      } catch (error) {
+        console.error("Error loading reviews:", error);
         setReviews([]);
       }
-    } catch (error) {
-      console.error("Error loading reviews:", error);
-      setReviews([]);
-    }
+    };
+
+    loadReviews();
   }, [selectedListing]);
 
   // Handle review submission
-  const handleSubmitReview = () => {
+  const handleSubmitReview = async () => {
     if (!user || !selectedListing || userRating === 0) return;
 
-    const newReview: Review = {
-      id: Date.now().toString(),
-      userName: isAnonymous ? generateAnonymousNickname() : user.username,
-      userId: user.username, // Track actual user even if posting anonymously
+    const review = await addReview({
+      listing_id: selectedListing.id,
+      user_id: user.id,
+      user_name: isAnonymous ? generateAnonymousNickname() : user.username,
       rating: userRating,
       comment: userReview.trim() || "No comment",
-      date: new Date().toISOString(),
-    };
-
-    // Remove existing review from this user (by userId)
-    const filteredReviews = reviews.filter(r => r.userId !== user.username);
-    const updatedReviews = [...filteredReviews, newReview];
-
-    // Save to localStorage
-    localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
-    setReviews(updatedReviews);
-
-    // Track review event for trends
-    const eventsData = localStorage.getItem("haven_listing_metric_events");
-    const events = eventsData ? JSON.parse(eventsData) : [];
-    events.push({
-      listingId: selectedListing.id,
-      timestamp: Date.now(),
-      type: 'review',
-      userId: user.username,
-      rating: userRating
     });
-    localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
 
-    // Mark as reviewed
-    markListingAsReviewed(selectedListing.id);
+    if (review) {
+      // Reload reviews
+      const supabaseReviews = await getListingReviews(selectedListing.id);
+      const convertedReviews: Review[] = supabaseReviews.map(r => ({
+        id: r.id,
+        userName: r.user_name,
+        userId: r.user_id,
+        rating: r.rating,
+        comment: r.comment,
+        date: r.created_at,
+      }));
+      setReviews(convertedReviews);
 
-    // Reset form
-    setUserRating(0);
-    setUserReview("");
-    setIsAnonymous(false);
-    setShowReviewForm(false);
+      // Track review event for trends
+      const eventsData = localStorage.getItem("haven_listing_metric_events");
+      const events = eventsData ? JSON.parse(eventsData) : [];
+      events.push({
+        listingId: selectedListing.id,
+        timestamp: Date.now(),
+        type: 'review',
+        userId: user.username,
+        rating: userRating
+      });
+      localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
+
+      // Mark as reviewed
+      markListingAsReviewed(selectedListing.id);
+
+      // Reset form
+      setUserRating(0);
+      setUserReview("");
+      setIsAnonymous(false);
+      setShowReviewForm(false);
+    }
   };
 
   const averageRating = reviews.length > 0
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : 0;
 
-  const userHasReview = user ? reviews.some(r => r.userId === user.username) : false;
+  const userHasReview = user ? reviews.some(r => r.userId === user.id) : false;
 
   if (!isLoggedIn) return null;
 
@@ -163,7 +182,7 @@ export default function SearchPage() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Navbar */}
       <div className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4">
-        <SharedNavbar />
+        <SharedNavbar likedCount={likedCount} />
       </div>
 
       <div className="container mx-auto px-6 py-8">
@@ -283,7 +302,7 @@ export default function SearchPage() {
                   <button
                     onClick={() => {
                       setShowReviewForm(true);
-                      const existingReview = reviews.find(r => r.userId === user.username);
+                      const existingReview = reviews.find(r => r.userId === user.id);
                       if (existingReview) {
                         setUserRating(existingReview.rating);
                         setUserReview(existingReview.comment);
@@ -401,7 +420,7 @@ export default function SearchPage() {
                         <div>
                           <div className="font-semibold text-gray-900 dark:text-white">
                             {review.userName}
-                            {user && review.userId === user.username && (
+                            {user && review.userId === user.id && (
                               <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">(You)</span>
                             )}
                           </div>

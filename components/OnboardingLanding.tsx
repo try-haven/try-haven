@@ -38,7 +38,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -47,23 +47,27 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
         setError("Please fill in all fields");
         return;
       }
-      const success = signUp(email, username, password, userType);
-      if (success) {
+      if (password.length < 6) {
+        setError("Password must be at least 6 characters");
+        return;
+      }
+      const result = await signUp(email, username, password, userType);
+      if (result.success) {
         setJustSignedUp(true);
         onSignUp();
       } else {
-        setError("An account with this email or username already exists. Please log in instead.");
+        setError(result.error || "An account with this email or username already exists. Please log in instead.");
       }
     } else {
       if (!username || !password) {
         setError("Please fill in all fields");
         return;
       }
-      const success = logIn(username, password);
-      if (success) {
+      const result = await logIn(username, password);
+      if (result.success) {
         onLogIn();
       } else {
-        setError("Invalid username or password");
+        setError(result.error || "Invalid username or password");
       }
     }
   };
@@ -204,23 +208,30 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
               />
             </div>
           )}
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              className={inputStyles.standard}
-              required
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className={buttonStyles.iconInput}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-            >
-              {showPassword ? <EyeIcon /> : <EyeSlashIcon />}
-            </button>
+          <div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className={inputStyles.standard}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className={buttonStyles.iconInput}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeIcon /> : <EyeSlashIcon />}
+              </button>
+            </div>
+            {isSignUp && (
+              <p className={`${textStyles.helperWithMargin}`}>
+                Must be at least 6 characters
+              </p>
+            )}
           </div>
           {error && (
             <div className={textStyles.error}>{error}</div>

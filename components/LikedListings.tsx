@@ -17,9 +17,10 @@ interface LikedListingsProps {
   onRemoveLike: (listingId: string) => void;
   onBackToHome?: () => void;
   isLoading?: boolean;
+  likedCount?: number;
 }
 
-export default function LikedListings({ likedListings, onBack, onRemoveLike, onBackToHome, isLoading = false }: LikedListingsProps) {
+export default function LikedListings({ likedListings, onBack, onRemoveLike, onBackToHome, isLoading = false, likedCount = 0 }: LikedListingsProps) {
   const { logOut, hasReviewedListing, markListingAsReviewed, user } = useUser();
   const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
@@ -194,6 +195,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
             <SharedNavbar
               onBackToHome={onBackToHome}
               showBackToHome={!!onBackToHome}
+              likedCount={likedCount}
             />
           </div>
           <div className="flex flex-col items-center justify-center min-h-[600px] text-center p-8">
@@ -215,6 +217,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
             <SharedNavbar
               onBackToHome={onBackToHome}
               showBackToHome={!!onBackToHome}
+              likedCount={likedCount}
             />
           </div>
           <div className="flex flex-col items-center justify-center min-h-[600px] text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
@@ -298,6 +301,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                 }
                 onBackToHome={onBackToHome}
                 showBackToHome={!!onBackToHome}
+                likedCount={likedCount}
               />
             </div>
           </div>
@@ -880,6 +884,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
           <SharedNavbar
             onBackToHome={onBackToHome}
             showBackToHome={!!onBackToHome}
+            likedCount={likedCount}
           />
         </div>
 

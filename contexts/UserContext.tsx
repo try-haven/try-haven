@@ -1,6 +1,8 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 type CommuteOption = "car" | "public-transit" | "walk" | "bike";
 type UserType = "searcher" | "manager";
@@ -10,10 +12,19 @@ interface UserPreferences {
   commute?: CommuteOption[];
 }
 
+interface Profile {
+  id: string;
+  username: string;
+  name?: string;
+  user_type: UserType;
+  address?: string;
+  commute_options?: CommuteOption[];
+}
+
 interface User {
+  id: string;
   email: string;
   username: string;
-  password: string;
   name?: string;
   userType: UserType;
   preferences?: UserPreferences;
@@ -23,108 +34,234 @@ interface UserContextType {
   user: User | null;
   isLoggedIn: boolean;
   isManager: boolean;
-  signUp: (email: string, username: string, password: string, userType?: UserType) => boolean;
-  logIn: (username: string, password: string) => boolean;
-  logOut: () => void;
-  hasReviewedListing: (listingId: string) => boolean;
-  markListingAsReviewed: (listingId: string) => void;
-  updatePreferences: (preferences: UserPreferences) => void;
+  loading: boolean;
+  signUp: (email: string, username: string, password: string, userType?: UserType) => Promise<{ success: boolean; error?: string }>;
+  logIn: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  logOut: () => Promise<void>;
+  hasReviewedListing: (listingId: string) => Promise<boolean>;
+  markListingAsReviewed: (listingId: string) => Promise<void>;
+  updatePreferences: (preferences: UserPreferences) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Load user from Supabase on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("haven_user");
-    if (storedUser) {
+    const initAuth = async () => {
       try {
-        setUser(JSON.parse(storedUser));
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          await loadUserProfile(session.user);
+        }
       } catch (error) {
-        console.error("Error parsing stored user:", error);
+        console.error("Error loading session:", error);
+      } finally {
+        setLoading(false);
       }
-    }
-    setMounted(true);
+    };
+
+    initAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        await loadUserProfile(session.user);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Save user to localStorage when it changes
-  useEffect(() => {
-    if (mounted) {
-      if (user) {
-        localStorage.setItem("haven_user", JSON.stringify(user));
-      } else {
-        localStorage.removeItem("haven_user");
+  const loadUserProfile = async (authUser: SupabaseUser) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+
+      if (error) {
+        console.error("Error fetching profile:", error);
+        // Profile might not exist yet if email confirmation is pending
+        if (error.code === 'PGRST116') {
+          console.log("Profile not found - might be pending email confirmation");
+        }
+        throw error;
       }
+
+      if (profile) {
+        setUser({
+          id: profile.id,
+          email: authUser.email!,
+          username: profile.username,
+          name: profile.name,
+          userType: profile.user_type as UserType,
+          preferences: {
+            address: profile.address,
+            commute: profile.commute_options as CommuteOption[],
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error loading profile:", error);
     }
-  }, [user, mounted]);
-
-  const signUp = (email: string, username: string, password: string, userType: UserType = "searcher"): boolean => {
-    // Check if user already exists
-    const existingUsers = localStorage.getItem("haven_users");
-    const users: User[] = existingUsers ? JSON.parse(existingUsers) : [];
-
-    if (users.some((u) => u.email === email || u.username === username)) {
-      return false; // User already exists
-    }
-
-    const newUser: User = { email, username, password, userType };
-    users.push(newUser);
-    localStorage.setItem("haven_users", JSON.stringify(users));
-    setUser(newUser);
-    return true;
   };
 
-  const logIn = (username: string, password: string): boolean => {
-    const existingUsers = localStorage.getItem("haven_users");
-    const users: User[] = existingUsers ? JSON.parse(existingUsers) : [];
-    
-    const foundUser = users.find((u) => (u.username === username || u.email === username) && u.password === password);
-    if (foundUser) {
-      setUser(foundUser);
-      return true;
+  const signUp = async (email: string, username: string, password: string, userType: UserType = "searcher"): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Check if username is already taken
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single();
+
+      if (existingProfile) {
+        return { success: false, error: "Username already taken" };
+      }
+
+      // Sign up with Supabase Auth
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+            user_type: userType,
+          },
+        },
+      });
+
+      if (error) {
+        console.error("Signup error:", error);
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        // If email confirmation is required, the user exists but profile won't be created yet
+        if (data.user.confirmed_at) {
+          await loadUserProfile(data.user);
+        } else {
+          console.log("Email confirmation required - profile will be created after confirmation");
+        }
+        return { success: true };
+      }
+
+      return { success: false, error: "Signup failed" };
+    } catch (error) {
+      console.error("Signup error:", error);
+      return { success: false, error: "An unexpected error occurred" };
     }
-    return false;
   };
 
-  const logOut = () => {
+  const logIn = async (usernameOrEmail: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Check if input is email or username
+      let email = usernameOrEmail;
+
+      if (!usernameOrEmail.includes('@')) {
+        // It's a username, fetch the email using RPC function
+        const { data: userEmail, error: rpcError } = await supabase
+          .rpc('get_email_from_username', { username_input: usernameOrEmail });
+
+        if (rpcError || !userEmail) {
+          return { success: false, error: "Invalid credentials" };
+        }
+        email = userEmail;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        return { success: false, error: "Invalid credentials" };
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user);
+        return { success: true };
+      }
+
+      return { success: false, error: "Login failed" };
+    } catch (error) {
+      console.error("Login error:", error);
+      return { success: false, error: "An unexpected error occurred" };
+    }
+  };
+
+  const logOut = async () => {
+    // Clear user state immediately for instant UI feedback
     setUser(null);
-    localStorage.removeItem("haven_user");
-  };
 
-  const hasReviewedListing = (listingId: string): boolean => {
-    if (!user) return false;
-    const reviewedListings = localStorage.getItem(`haven_reviews_${user.username}`);
-    if (!reviewedListings) return false;
-    const reviews: string[] = JSON.parse(reviewedListings);
-    return reviews.includes(listingId);
-  };
-
-  const markListingAsReviewed = (listingId: string) => {
-    if (!user) return;
-    const reviewedListings = localStorage.getItem(`haven_reviews_${user.username}`);
-    const reviews: string[] = reviewedListings ? JSON.parse(reviewedListings) : [];
-    if (!reviews.includes(listingId)) {
-      reviews.push(listingId);
-      localStorage.setItem(`haven_reviews_${user.username}`, JSON.stringify(reviews));
+    // Sign out from Supabase in the background
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error("Logout error:", error);
     }
   };
 
-  const updatePreferences = (preferences: UserPreferences) => {
+  const hasReviewedListing = async (listingId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('reviewed_listings')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('listing_id', listingId)
+        .single();
+
+      return !!data && !error;
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const markListingAsReviewed = async (listingId: string) => {
     if (!user) return;
 
-    const updatedUser = { ...user, preferences };
-    setUser(updatedUser);
+    try {
+      await supabase
+        .from('reviewed_listings')
+        .insert({
+          user_id: user.id,
+          listing_id: listingId,
+        });
+    } catch (error) {
+      console.error("Error marking listing as reviewed:", error);
+    }
+  };
 
-    // Update in users array
-    const existingUsers = localStorage.getItem("haven_users");
-    const users: User[] = existingUsers ? JSON.parse(existingUsers) : [];
-    const updatedUsers = users.map(u =>
-      u.username === user.username ? updatedUser : u
-    );
-    localStorage.setItem("haven_users", JSON.stringify(updatedUsers));
+  const updatePreferences = async (preferences: UserPreferences) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          address: preferences.address,
+          commute_options: preferences.commute,
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setUser({
+        ...user,
+        preferences,
+      });
+    } catch (error) {
+      console.error("Error updating preferences:", error);
+    }
   };
 
   return (
@@ -133,6 +270,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         user,
         isLoggedIn: !!user,
         isManager: user?.userType === "manager",
+        loading,
         signUp,
         logIn,
         logOut,

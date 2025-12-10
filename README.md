@@ -2,6 +2,18 @@
 
 A modern apartment discovery platform with a Tinder-like swipe interface. Find your perfect apartment by swiping through personalized listings tailored to your preferences and discover your next home.
 
+## 🔑 Test Login Credentials
+
+### Test User (Searcher)
+- **Username**: `test`
+- **Email**: `test@gmail.com`
+- **Password**: `test1234`
+
+### Test Manager (Property Manager)
+- **Username**: `manager`
+- **Email**: `manager@gmail.com`
+- **Password**: `test1234`
+
 ## 🚀 Project Overview
 
 Haven is a web-based apartment search application that makes finding your next home as simple as swiping right. Built with Next.js, React, and Tailwind CSS, featuring smooth animations, dark mode support, and an intuitive user experience.

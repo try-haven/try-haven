@@ -7,6 +7,7 @@ import { ApartmentListing } from "@/lib/data";
 import { textStyles, inputStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import { getManagerListings, updateListing } from "@/lib/listings";
 
 interface ListingChange {
   listingId: string;
@@ -48,31 +49,47 @@ function EditListingContent() {
       return;
     }
 
-    // Load listing
-    if (listingId && user) {
-      const storedListings = localStorage.getItem(`haven_manager_listings_${user.username}`);
-      if (storedListings) {
-        const listings: ApartmentListing[] = JSON.parse(storedListings);
-        const listing = listings.find(l => l.id === listingId);
-        if (listing) {
-          setOriginalListing(listing);
-          setFormData({
-            title: listing.title,
-            address: listing.address,
-            price: listing.price.toString(),
-            bedrooms: listing.bedrooms.toString(),
-            bathrooms: listing.bathrooms.toString(),
-            sqft: listing.sqft.toString(),
-            description: listing.description || "",
-            availableFrom: listing.availableFrom || "",
-            amenities: listing.amenities.join(", "),
-            images: listing.images.join("\n"),
-          });
-        } else {
-          setError("Listing not found");
-        }
+    // Load listing from Supabase
+    const loadListing = async () => {
+      if (!listingId || !user) return;
+
+      const supabaseListings = await getManagerListings(user.id);
+      const supabaseListing = supabaseListings.find(l => l.id === listingId);
+
+      if (supabaseListing) {
+        const listing: ApartmentListing = {
+          id: supabaseListing.id,
+          title: supabaseListing.title,
+          address: supabaseListing.address,
+          price: Number(supabaseListing.price),
+          bedrooms: supabaseListing.bedrooms,
+          bathrooms: supabaseListing.bathrooms,
+          sqft: supabaseListing.sqft,
+          images: supabaseListing.images || [],
+          amenities: supabaseListing.amenities || [],
+          description: supabaseListing.description,
+          availableFrom: supabaseListing.available_from,
+        };
+
+        setOriginalListing(listing);
+        setFormData({
+          title: listing.title,
+          address: listing.address,
+          price: listing.price.toString(),
+          bedrooms: listing.bedrooms.toString(),
+          bathrooms: listing.bathrooms.toString(),
+          sqft: listing.sqft.toString(),
+          description: listing.description || "",
+          availableFrom: listing.availableFrom || "",
+          amenities: listing.amenities.join(", "),
+          images: listing.images.join("\n"),
+        });
+      } else {
+        setError("Listing not found");
       }
-    }
+    };
+
+    loadListing();
   }, [isLoggedIn, isManager, router, user, listingId]);
 
   const trackChange = (field: string, oldValue: any, newValue: any) => {
@@ -165,17 +182,27 @@ function EditListingContent() {
         trackChange("bathrooms", originalListing.bathrooms, updatedListing.bathrooms);
       }
 
-      // Update in localStorage
-      const existingListings = localStorage.getItem(`haven_manager_listings_${user.username}`);
-      const listings: ApartmentListing[] = existingListings ? JSON.parse(existingListings) : [];
-      const index = listings.findIndex(l => l.id === listingId);
-      if (index !== -1) {
-        listings[index] = updatedListing;
-        localStorage.setItem(`haven_manager_listings_${user.username}`, JSON.stringify(listings));
-      }
+      // Update in Supabase
+      const success = await updateListing(listingId, {
+        title: formData.title,
+        address: formData.address,
+        price: parseFloat(formData.price),
+        bedrooms: parseInt(formData.bedrooms),
+        bathrooms: parseFloat(formData.bathrooms),
+        sqft: parseInt(formData.sqft) || 0,
+        images: imageUrls,
+        amenities: amenitiesList,
+        description: formData.description,
+        available_from: formData.availableFrom || new Date().toISOString().split("T")[0],
+      });
 
-      // Redirect to dashboard
-      router.push("/manager/dashboard");
+      if (success) {
+        // Redirect to dashboard
+        router.push("/manager/dashboard");
+      } else {
+        setError("Failed to update listing in database. Please try again.");
+        setIsSubmitting(false);
+      }
     } catch (err) {
       setError("Failed to update listing. Please check your inputs.");
       setIsSubmitting(false);

@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ApartmentListing, Review } from "@/lib/data";
-import { fakeListings } from "@/lib/data";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { textStyles, buttonStyles, badgeStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import { useUser } from "@/contexts/UserContext";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import { useListings } from "@/contexts/ListingsContext";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -17,8 +17,8 @@ function ListingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user } = useUser();
+  const { listings } = useListings();
   const listingId = searchParams.get("id");
-  const [listing, setListing] = useState<ApartmentListing | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -30,89 +30,60 @@ function ListingContent() {
     timestamp: number;
   }>>([]);
 
+  const listing = useMemo(() =>
+    listings.find(l => l.id === listingId) || null,
+    [listings, listingId]
+  );
+
   useEffect(() => {
-    if (!listingId) return;
+    if (!listingId || !listing) return;
 
-    // Load the listing from fake listings or manager listings
-    let foundListing: ApartmentListing | null = null;
+    // Load reviews
+    const storedReviews = localStorage.getItem(`haven_listing_reviews_${listingId}`);
+    if (storedReviews) {
+      setReviews(JSON.parse(storedReviews));
+    }
 
-    // Check fake listings first
-    foundListing = fakeListings.find(l => l.id === listingId) || null;
+    // Load recent changes (last 30 days)
+    const changesData = localStorage.getItem("haven_listing_changes");
+    if (changesData) {
+      try {
+        const allChanges = JSON.parse(changesData);
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const listingChanges = allChanges
+          .filter((change: any) =>
+            change.listingId === listingId &&
+            change.timestamp > thirtyDaysAgo
+          )
+          .sort((a: any, b: any) => b.timestamp - a.timestamp);
+        setRecentChanges(listingChanges);
+      } catch (error) {
+        console.error("Error loading changes:", error);
+      }
+    }
 
-    // If not found, check all manager listings
-    if (!foundListing) {
-      const usersData = localStorage.getItem("haven_users");
-      if (usersData) {
-        try {
-          const users = JSON.parse(usersData);
-          users.forEach((u: any) => {
-            if (u.userType === "manager") {
-              const listings = localStorage.getItem(`haven_manager_listings_${u.username}`);
-              if (listings) {
-                const parsedListings: ApartmentListing[] = JSON.parse(listings);
-                const found = parsedListings.find(l => l.id === listingId);
-                if (found) {
-                  foundListing = found;
-                }
-              }
-            }
+    // Geocode address
+    fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(listing.address)}&limit=1`,
+      {
+        headers: {
+          "User-Agent": "Haven App"
+        }
+      }
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          setCoordinates({
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon),
           });
-        } catch (error) {
-          console.error("Error loading listing:", error);
         }
-      }
-    }
-
-    if (foundListing) {
-      setListing(foundListing);
-
-      // Load reviews
-      const storedReviews = localStorage.getItem(`haven_listing_reviews_${listingId}`);
-      if (storedReviews) {
-        setReviews(JSON.parse(storedReviews));
-      }
-
-      // Load recent changes (last 30 days)
-      const changesData = localStorage.getItem("haven_listing_changes");
-      if (changesData) {
-        try {
-          const allChanges = JSON.parse(changesData);
-          const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-          const listingChanges = allChanges
-            .filter((change: any) =>
-              change.listingId === listingId &&
-              change.timestamp > thirtyDaysAgo
-            )
-            .sort((a: any, b: any) => b.timestamp - a.timestamp);
-          setRecentChanges(listingChanges);
-        } catch (error) {
-          console.error("Error loading changes:", error);
-        }
-      }
-
-      // Geocode address
-      fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(foundListing.address)}&limit=1`,
-        {
-          headers: {
-            "User-Agent": "Haven App"
-          }
-        }
-      )
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.length > 0) {
-            setCoordinates({
-              lat: parseFloat(data[0].lat),
-              lng: parseFloat(data[0].lon),
-            });
-          }
-        })
-        .catch((error) => {
-          console.error("Error geocoding address:", error);
-        });
-    }
-  }, [listingId]);
+      })
+      .catch((error) => {
+        console.error("Error geocoding address:", error);
+      });
+  }, [listingId, listing]);
 
   const handleShare = async () => {
     const url = window.location.href;

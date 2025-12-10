@@ -5,10 +5,11 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import SharedNavbar from "./SharedNavbar";
 import { useUser } from "@/contexts/UserContext";
-import { fakeListings } from "@/lib/data";
 import { generateAnonymousNickname } from "@/lib/nicknames";
 import dynamic from "next/dynamic";
 import { textStyles } from "@/lib/styles";
+import { useListings } from "@/contexts/ListingsContext";
+import { getListingReviews, addReview, deleteReview, Review as SupabaseReview } from "@/lib/listings";
 
 // Dynamically import the map component to avoid SSR issues
 const MapView = dynamic(() => import("./MapView"), { ssr: false });
@@ -16,11 +17,13 @@ const MapView = dynamic(() => import("./MapView"), { ssr: false });
 interface ReviewedListingsProps {
   onBack: () => void;
   onBackToHome?: () => void;
+  likedCount?: number;
 }
 
-export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListingsProps) {
+export default function ReviewedListings({ onBack, onBackToHome, likedCount = 0 }: ReviewedListingsProps) {
   const { logOut, user, markListingAsReviewed } = useUser();
   const [reviewedListings, setReviewedListings] = useState<Array<{ listing: ApartmentListing; review: Review }>>([]);
+  const { listings: allListings, isLoading: isLoadingListings } = useListings();
   const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
@@ -33,26 +36,39 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
   const [originalRating, setOriginalRating] = useState<number>(0);
   const [isAnonymous, setIsAnonymous] = useState(false);
 
-  // Load all reviewed listings
-  useEffect(() => {
-    if (!user) return;
+  // Helper function to reload reviewed listings
+  const reloadReviewedListings = async () => {
+    if (!user || allListings.length === 0) return;
 
     const reviewed: Array<{ listing: ApartmentListing; review: Review }> = [];
-    
-    // Check all listings for reviews by this user
-    fakeListings.forEach((listing) => {
-      const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
-      if (storedReviews) {
-        const reviews: Review[] = JSON.parse(storedReviews);
-        const userReview = reviews.find(r => r.userId === user.username);
+
+    await Promise.all(
+      allListings.map(async (listing) => {
+        const supabaseReviews = await getListingReviews(listing.id);
+        const userReview = supabaseReviews.find(r => r.user_id === user.id);
         if (userReview) {
-          reviewed.push({ listing, review: userReview });
+          reviewed.push({
+            listing,
+            review: {
+              id: userReview.id,
+              userName: userReview.user_name,
+              userId: userReview.user_id,
+              rating: userReview.rating,
+              comment: userReview.comment,
+              date: userReview.created_at,
+            }
+          });
         }
-      }
-    });
+      })
+    );
 
     setReviewedListings(reviewed);
-  }, [user]);
+  };
+
+  // Load all reviewed listings
+  useEffect(() => {
+    reloadReviewedListings();
+  }, [user, allListings]);
 
   // Geocode address when listing is selected
   useEffect(() => {
@@ -92,6 +108,7 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
             <SharedNavbar
               onBackToHome={onBackToHome}
               showBackToHome={!!onBackToHome}
+              likedCount={likedCount}
             />
           </div>
           <div className="flex flex-col items-center justify-center min-h-[600px] text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg">
@@ -143,6 +160,7 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
               }
               onBackToHome={onBackToHome}
               showBackToHome={!!onBackToHome}
+              likedCount={likedCount}
             />
           </div>
 
@@ -335,39 +353,14 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
                     />
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (selectedListing && user) {
-                            // Delete review and rating
-                            const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
-                            const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
-                            const filteredReviews = allReviews.filter(r => r.userId !== user.username);
-                            localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(filteredReviews));
-                            
-                            // Remove rating
-                            localStorage.removeItem(`haven_rating_${selectedListing.id}_${user.username}`);
-                            
-                            // Remove from reviewed listings
-                            const reviewedListings = localStorage.getItem(`haven_reviews_${user.username}`);
-                            if (reviewedListings) {
-                              const reviews: string[] = JSON.parse(reviewedListings);
-                              const filtered = reviews.filter(id => id !== selectedListing.id);
-                              localStorage.setItem(`haven_reviews_${user.username}`, JSON.stringify(filtered));
-                            }
-                            
-                            // Reload reviewed listings
-                            const reviewed: Array<{ listing: ApartmentListing; review: Review }> = [];
-                            fakeListings.forEach((listing) => {
-                              const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
-                              if (storedReviews) {
-                                const reviews: Review[] = JSON.parse(storedReviews);
-                                const userReview = reviews.find(r => r.userId === user.username);
-                                if (userReview) {
-                                  reviewed.push({ listing, review: userReview });
-                                }
-                              }
-                            });
-                            setReviewedListings(reviewed);
-                            
+                            // Delete review from Supabase
+                            await deleteReview(user.id, selectedListing.id);
+
+                            // Reload reviewed listings from Supabase
+                            await reloadReviewedListings();
+
                             // Reset and go back to list
                             setSelectedListing(null);
                             setSelectedReview(null);
@@ -396,29 +389,27 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
                         Discard
                       </button>
                       <button
-                        onClick={() => {
+                        onClick={async () => {
                           if (userRating > 0 && selectedListing && user) {
-                            // Determine what needs to be updated
-                            const ratingChanged = userRating !== originalRating;
-                            const reviewChanged = userReview.trim() !== originalReview;
-                            
-                            // Update review if it changed
-                            if (reviewChanged) {
-                              const listingReviews = localStorage.getItem(`haven_listing_reviews_${selectedListing.id}`);
-                              const allReviews: Review[] = listingReviews ? JSON.parse(listingReviews) : [];
-                              const filteredReviews = allReviews.filter(r => r.userId !== user.username);
+                            // Save review to Supabase (this will automatically upsert)
+                            const savedReview = await addReview({
+                              listing_id: selectedListing.id,
+                              user_id: user.id,
+                              user_name: isAnonymous ? generateAnonymousNickname() : user.username,
+                              rating: userRating,
+                              comment: userReview.trim() || "No comment",
+                            });
 
-                              const newReview: Review = {
-                                id: Date.now().toString(),
-                                userName: isAnonymous ? generateAnonymousNickname() : user.username,
-                                userId: user.username,
-                                rating: userRating,
-                                comment: userReview.trim() || "No comment",
-                                date: new Date().toISOString(),
-                              };
-                              const updatedReviews = [...filteredReviews, newReview];
-                              localStorage.setItem(`haven_listing_reviews_${selectedListing.id}`, JSON.stringify(updatedReviews));
-                              setSelectedReview(newReview);
+                            if (savedReview) {
+                              // Update the selected review with the new data
+                              setSelectedReview({
+                                id: savedReview.id,
+                                userName: savedReview.user_name,
+                                userId: savedReview.user_id,
+                                rating: savedReview.rating,
+                                comment: savedReview.comment,
+                                date: savedReview.updated_at,
+                              });
 
                               // Track review event for trends
                               const eventsData = localStorage.getItem("haven_listing_metric_events");
@@ -427,55 +418,18 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
                                 listingId: selectedListing.id,
                                 timestamp: Date.now(),
                                 type: 'review',
-                                userId: user.username,
+                                userId: user.id,
                                 rating: userRating
                               });
                               localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
                             }
 
-                            // Update rating if it changed
-                            if (ratingChanged) {
-                              const ratingData = {
-                                listingId: selectedListing.id,
-                                rating: userRating,
-                                userId: user.username,
-                                date: new Date().toISOString(),
-                              };
-                              localStorage.setItem(`haven_rating_${selectedListing.id}_${user.username}`, JSON.stringify(ratingData));
-                              markListingAsReviewed(selectedListing.id);
-
-                              // Track review event for trends (only if review wasn't already tracked)
-                              if (!reviewChanged) {
-                                const eventsData = localStorage.getItem("haven_listing_metric_events");
-                                const events = eventsData ? JSON.parse(eventsData) : [];
-                                events.push({
-                                  listingId: selectedListing.id,
-                                  timestamp: Date.now(),
-                                  type: 'review',
-                                  userId: user.username,
-                                  rating: userRating
-                                });
-                                localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
-                              }
-                            }
-
                             // Update original values
                             setOriginalRating(userRating);
                             setOriginalReview(userReview.trim());
-                            
-                            // Reload reviewed listings
-                            const reviewed: Array<{ listing: ApartmentListing; review: Review }> = [];
-                            fakeListings.forEach((listing) => {
-                              const storedReviews = localStorage.getItem(`haven_listing_reviews_${listing.id}`);
-                              if (storedReviews) {
-                                const reviews: Review[] = JSON.parse(storedReviews);
-                                const userReview = reviews.find(r => r.userId === user.username);
-                                if (userReview) {
-                                  reviewed.push({ listing, review: userReview });
-                                }
-                              }
-                            });
-                            setReviewedListings(reviewed);
+
+                            // Reload reviewed listings from Supabase
+                            await reloadReviewedListings();
 
                             setUserReview("");
                             setUserRating(0);
@@ -552,6 +506,7 @@ export default function ReviewedListings({ onBack, onBackToHome }: ReviewedListi
           <SharedNavbar
             onBackToHome={onBackToHome}
             showBackToHome={!!onBackToHome}
+            likedCount={likedCount}
           />
         </div>
 

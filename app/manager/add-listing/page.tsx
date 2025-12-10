@@ -7,6 +7,7 @@ import { ApartmentListing } from "@/lib/data";
 import { textStyles, inputStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import { createListing } from "@/lib/listings";
 
 export default function AddListingPage() {
   const router = useRouter();
@@ -76,9 +77,9 @@ export default function AddListingPage() {
         .map(a => a.trim())
         .filter(a => a.length > 0);
 
-      // Create listing object
-      const newListing: ApartmentListing = {
-        id: `manager-${user?.username}-${Date.now()}`,
+      // Create listing in Supabase
+      const listing = await createListing({
+        manager_id: user!.id,
         title: formData.title,
         address: formData.address,
         price: parseFloat(formData.price),
@@ -88,17 +89,16 @@ export default function AddListingPage() {
         images: imageUrls,
         amenities: amenitiesList,
         description: formData.description,
-        availableFrom: formData.availableFrom || new Date().toISOString().split("T")[0],
-      };
+        available_from: formData.availableFrom || new Date().toISOString().split("T")[0],
+      });
 
-      // Save to localStorage
-      const existingListings = localStorage.getItem(`haven_manager_listings_${user?.username}`);
-      const listings: ApartmentListing[] = existingListings ? JSON.parse(existingListings) : [];
-      listings.push(newListing);
-      localStorage.setItem(`haven_manager_listings_${user?.username}`, JSON.stringify(listings));
-
-      // Redirect to dashboard
-      router.push("/manager/dashboard");
+      if (listing) {
+        // Redirect to dashboard
+        router.push("/manager/dashboard");
+      } else {
+        setError("Failed to create listing in database. Please try again.");
+        setIsSubmitting(false);
+      }
     } catch (err) {
       setError("Failed to create listing. Please check your inputs.");
       setIsSubmitting(false);

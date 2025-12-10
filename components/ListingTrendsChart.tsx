@@ -3,7 +3,8 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { textStyles } from "@/lib/styles";
-import { ApartmentListing, fakeListings } from "@/lib/data";
+import { ApartmentListing } from "@/lib/data";
+import { useListings } from "@/contexts/ListingsContext";
 
 interface MetricEvent {
   listingId: string;
@@ -26,36 +27,15 @@ interface ListingTrendsChartProps {
 }
 
 export default function ListingTrendsChart({ listingId }: ListingTrendsChartProps) {
+  const { listings: allListings, isLoading } = useListings();
+
   const chartData = useMemo(() => {
-    // Load the listing to get initial price
-    let listing: ApartmentListing | null = null;
-
-    // Check fake listings
-    listing = fakeListings.find(l => l.id === listingId) || null;
-
-    // If not found, check manager listings
-    if (!listing) {
-      const usersData = localStorage.getItem("haven_users");
-      if (usersData) {
-        try {
-          const users = JSON.parse(usersData);
-          users.forEach((u: any) => {
-            if (u.userType === "manager") {
-              const listings = localStorage.getItem(`haven_manager_listings_${u.username}`);
-              if (listings) {
-                const parsedListings: ApartmentListing[] = JSON.parse(listings);
-                const found = parsedListings.find(l => l.id === listingId);
-                if (found) {
-                  listing = found;
-                }
-              }
-            }
-          });
-        } catch (error) {
-          console.error("Error loading listing:", error);
-        }
-      }
+    if (allListings.length === 0) {
+      return { data: [], priceChanges: [], currentPrice: 0 };
     }
+
+    // Load the listing to get initial price
+    const listing = allListings.find(l => l.id === listingId) || null;
 
     if (!listing) {
       return { data: [], priceChanges: [], currentPrice: 0 };
@@ -250,9 +230,17 @@ export default function ListingTrendsChart({ listingId }: ListingTrendsChartProp
     });
 
     return { data: dataWithPrice, priceChanges, currentPrice };
-  }, [listingId]);
+  }, [listingId, allListings]);
 
   const { data, priceChanges, currentPrice } = chartData;
+
+  if (isLoading) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-8 text-center">
+        <p className={textStyles.body}>Loading...</p>
+      </div>
+    );
+  }
 
   if (data.length === 0) {
     return (

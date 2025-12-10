@@ -1,11 +1,11 @@
 "use client";
 
 import { useUser } from "@/contexts/UserContext";
+import { useLikedListingsContext } from "@/contexts/LikedListingsContext";
 import DarkModeToggle from "./DarkModeToggle";
 import HavenLogo from "./HavenLogo";
 import { useRouter, usePathname } from "next/navigation";
 import { buttonStyles, textStyles, layoutStyles } from "@/lib/styles";
-import { useState, useEffect } from "react";
 
 interface SharedNavbarProps {
   onPreferencesClick?: () => void;
@@ -14,69 +14,22 @@ interface SharedNavbarProps {
   onBackToHome?: () => void;
   showBackToHome?: boolean;
   leftButton?: React.ReactNode;
+  likedCount?: number;
 }
 
-export default function SharedNavbar({ 
-  onPreferencesClick, 
+export default function SharedNavbar({
+  onPreferencesClick,
   onMyReviewsClick,
   onLikedListingsClick,
   onBackToHome,
   showBackToHome = false,
-  leftButton
+  leftButton,
+  likedCount = 0
 }: SharedNavbarProps) {
   const { isLoggedIn, logOut, user } = useUser();
+  const { flushPendingSync } = useLikedListingsContext();
   const router = useRouter();
   const pathname = usePathname();
-  const [likedCount, setLikedCount] = useState(0);
-
-  // Load liked listings count from localStorage
-  useEffect(() => {
-    if (user && isLoggedIn) {
-      const storedLikedIds = localStorage.getItem(`haven_liked_listings_${user.username}`);
-      if (storedLikedIds) {
-        try {
-          const parsedIds = JSON.parse(storedLikedIds);
-          setLikedCount(parsedIds.length);
-        } catch (error) {
-          console.error("Error parsing liked listings:", error);
-          setLikedCount(0);
-        }
-      } else {
-        setLikedCount(0);
-      }
-    } else {
-      setLikedCount(0);
-    }
-  }, [user, isLoggedIn]);
-
-  // Listen for storage changes to update count
-  useEffect(() => {
-    if (!user || !isLoggedIn) return;
-
-    const handleStorageChange = () => {
-      const storedLikedIds = localStorage.getItem(`haven_liked_listings_${user.username}`);
-      if (storedLikedIds) {
-        try {
-          const parsedIds = JSON.parse(storedLikedIds);
-          setLikedCount(parsedIds.length);
-        } catch (error) {
-          setLikedCount(0);
-        }
-      } else {
-        setLikedCount(0);
-      }
-    };
-
-    // Listen for custom storage events
-    window.addEventListener('storage', handleStorageChange);
-    // Also check periodically (for same-tab updates)
-    const interval = setInterval(handleStorageChange, 500);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [user, isLoggedIn]);
 
   const handlePreferences = () => {
     if (onPreferencesClick) {
@@ -106,13 +59,19 @@ export default function SharedNavbar({
     router.push("/search");
   };
 
+  const handleSwipe = () => {
+    router.push("/swipe");
+  };
+
   const handleBackToHome = () => {
     // Always go to home page (/), not swipe
     router.push("/?home=true");
   };
 
-  const handleLogOut = () => {
-    logOut();
+  const handleLogOut = async () => {
+    // Flush any pending liked listings syncs before logging out
+    await flushPendingSync();
+    await logOut();
     router.push("/");
   };
 
@@ -164,6 +123,12 @@ export default function SharedNavbar({
               className={buttonStyles.navHideMobile}
             >
               My Reviews
+            </button>
+            <button
+              onClick={handleSwipe}
+              className={buttonStyles.nav}
+            >
+              Swipe
             </button>
           </>
         )}
