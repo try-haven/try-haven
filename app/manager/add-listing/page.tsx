@@ -82,7 +82,7 @@ export default function AddListingPage() {
         manager_id: user!.id,
         title: formData.title,
         address: formData.address,
-        price: parseFloat(formData.price),
+        price: parseInt(formData.price, 10),
         bedrooms: parseInt(formData.bedrooms),
         bathrooms: parseFloat(formData.bathrooms),
         sqft: parseInt(formData.sqft) || 0,
@@ -175,15 +175,15 @@ export default function AddListingPage() {
                   Price ($/month) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   name="price"
                   value={formData.price}
                   onChange={handleChange}
                   placeholder="2500"
                   className={inputStyles.standard}
                   required
-                  min="0"
-                  step="50"
                 />
               </div>
               <div>

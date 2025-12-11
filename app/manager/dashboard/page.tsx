@@ -24,6 +24,7 @@ export default function ManagerDashboard() {
   const [listings, setListings] = useState<ApartmentListing[]>([]);
   const [metrics, setMetrics] = useState<Record<string, ListingMetrics>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [expandedListings, setExpandedListings] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Redirect if not logged in or not a manager
@@ -147,6 +148,18 @@ export default function ManagerDashboard() {
     }, 0);
   };
 
+  const toggleExpanded = (listingId: string) => {
+    setExpandedListings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(listingId)) {
+        newSet.delete(listingId);
+      } else {
+        newSet.add(listingId);
+      }
+      return newSet;
+    });
+  };
+
   if (!isLoggedIn || !isManager) {
     return null;
   }
@@ -266,11 +279,31 @@ export default function ManagerDashboard() {
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                   {listings.map((listing) => {
                     const listingMetrics = getMetrics(listing.id);
+                    const isExpanded = expandedListings.has(listing.id);
                     return (
                       <Fragment key={listing.id}>
-                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <tr
+                          className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                          onClick={() => toggleExpanded(listing.id)}
+                        >
                           <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
+                            {/* Expand/Collapse Chevron */}
+                            <svg
+                              className={`w-5 h-5 text-gray-400 transition-transform ${
+                                isExpanded ? 'rotate-90' : ''
+                              }`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
                             {listing.images[0] && (
                               <img
                                 src={listing.images[0]}
@@ -323,7 +356,7 @@ export default function ManagerDashboard() {
                             {getReviewCount(listing.id)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-3">
                             <button
                               onClick={() => router.push(`/listing?id=${listing.id}`)}
@@ -352,11 +385,16 @@ export default function ManagerDashboard() {
                           </div>
                         </td>
                       </tr>
-                      <tr>
-                        <td colSpan={9} className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
-                          <ListingTrendsChart listingId={listing.id} />
-                        </td>
-                      </tr>
+                      {isExpanded && (
+                        <tr>
+                          <td colSpan={9} className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
+                            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                              Analytics & Trends
+                            </div>
+                            <ListingTrendsChart listingId={listing.id} />
+                          </td>
+                        </tr>
+                      )}
                     </Fragment>
                     );
                   })}

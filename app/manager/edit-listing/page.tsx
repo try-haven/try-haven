@@ -116,7 +116,7 @@ function EditListingContent() {
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setIsSubmitting(true);
@@ -128,15 +128,39 @@ function EditListingContent() {
         return;
       }
 
+      // Read values directly from form to avoid state race conditions
+      const form = e.currentTarget;
+      const formDataObj = new FormData(form);
+
+      const title = formDataObj.get("title") as string;
+      const address = formDataObj.get("address") as string;
+      const price = formDataObj.get("price") as string;
+      const bedrooms = formDataObj.get("bedrooms") as string;
+      const bathrooms = formDataObj.get("bathrooms") as string;
+      const sqft = formDataObj.get("sqft") as string;
+      const description = formDataObj.get("description") as string;
+      const availableFrom = formDataObj.get("availableFrom") as string;
+      const amenities = formDataObj.get("amenities") as string;
+      const images = formDataObj.get("images") as string;
+
+
       // Validate required fields
-      if (!formData.title || !formData.address || !formData.price || !formData.bedrooms || !formData.bathrooms) {
+      if (!title || !address || !price || !bedrooms || !bathrooms) {
         setError("Please fill in all required fields");
         setIsSubmitting(false);
         return;
       }
 
+      // Validate price is a valid number
+      const priceNum = parseInt(price, 10);
+      if (isNaN(priceNum) || priceNum < 0) {
+        setError("Please enter a valid price");
+        setIsSubmitting(false);
+        return;
+      }
+
       // Parse image URLs
-      const imageUrls = formData.images
+      const imageUrls = images
         .split("\n")
         .map(url => url.trim())
         .filter(url => url.length > 0);
@@ -148,7 +172,7 @@ function EditListingContent() {
       }
 
       // Parse amenities
-      const amenitiesList = formData.amenities
+      const amenitiesList = amenities
         .split(",")
         .map(a => a.trim())
         .filter(a => a.length > 0);
@@ -156,16 +180,16 @@ function EditListingContent() {
       // Create updated listing object
       const updatedListing: ApartmentListing = {
         ...originalListing,
-        title: formData.title,
-        address: formData.address,
-        price: parseFloat(formData.price),
-        bedrooms: parseInt(formData.bedrooms),
-        bathrooms: parseFloat(formData.bathrooms),
-        sqft: parseInt(formData.sqft) || 0,
+        title: title,
+        address: address,
+        price: parseInt(price, 10),
+        bedrooms: parseInt(bedrooms, 10),
+        bathrooms: parseFloat(bathrooms),
+        sqft: parseInt(sqft, 10) || 0,
         images: imageUrls,
         amenities: amenitiesList,
-        description: formData.description,
-        availableFrom: formData.availableFrom || originalListing.availableFrom,
+        description: description,
+        availableFrom: availableFrom || originalListing.availableFrom,
       };
 
       // Track changes for important fields
@@ -182,18 +206,19 @@ function EditListingContent() {
         trackChange("bathrooms", originalListing.bathrooms, updatedListing.bathrooms);
       }
 
+
       // Update in Supabase
       const success = await updateListing(listingId, {
-        title: formData.title,
-        address: formData.address,
-        price: parseFloat(formData.price),
-        bedrooms: parseInt(formData.bedrooms),
-        bathrooms: parseFloat(formData.bathrooms),
-        sqft: parseInt(formData.sqft) || 0,
+        title: title,
+        address: address,
+        price: updatedListing.price,
+        bedrooms: updatedListing.bedrooms,
+        bathrooms: updatedListing.bathrooms,
+        sqft: updatedListing.sqft,
         images: imageUrls,
         amenities: amenitiesList,
-        description: formData.description,
-        available_from: formData.availableFrom || new Date().toISOString().split("T")[0],
+        description: description,
+        available_from: availableFrom || new Date().toISOString().split("T")[0],
       });
 
       if (success) {
@@ -296,15 +321,16 @@ function EditListingContent() {
                   Price ($/month) <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   name="price"
                   value={formData.price}
                   onChange={handleChange}
+                  onBlur={handleChange}
                   placeholder="2500"
                   className={inputStyles.standard}
                   required
-                  min="0"
-                  step="50"
                 />
               </div>
               <div>
