@@ -19,7 +19,18 @@ interface CardStackProps {
 
 export default function CardStack({ listings, onLikedChange, initialLikedIds = new Set(), onViewLiked, initialCompleted = false, onCompletedChange }: CardStackProps) {
   const { user } = useUser();
-  const [currentIndex, setCurrentIndex] = useState(initialCompleted ? listings.length : 0);
+
+  // Load saved position from localStorage on mount
+  const getSavedPosition = () => {
+    if (typeof window === 'undefined') return 0;
+    const saved = localStorage.getItem('haven_swipe_position');
+    return saved ? parseInt(saved, 10) : 0;
+  };
+
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    if (initialCompleted) return listings.length;
+    return getSavedPosition();
+  });
   const [swipedListings, setSwipedListings] = useState<Set<string>>(new Set());
   const [likedListings, setLikedListings] = useState<Set<string>>(initialLikedIds);
   const [triggerSwipe, setTriggerSwipe] = useState<"left" | "right" | null>(null);
@@ -32,6 +43,13 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
     index: number;
   } | null>(null);
   const [canUndo, setCanUndo] = useState(false);
+
+  // Save current position to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('haven_swipe_position', currentIndex.toString());
+    }
+  }, [currentIndex]);
 
   // Track view metrics when a new listing is shown
   useEffect(() => {
@@ -697,6 +715,26 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
             </svg>
             {likedListings.size}
           </div>
+        )}
+        {currentIndex > 0 && (
+          <button
+            onClick={() => {
+              setCurrentIndex(0);
+              setSwipedListings(new Set());
+              localStorage.setItem('haven_swipe_position', '0');
+              if (onCompletedChange) {
+                onCompletedChange(false);
+              }
+              // Don't reset liked listings - keep them!
+            }}
+            className="bg-indigo-500/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg text-sm font-medium text-white hover:bg-indigo-600 transition-colors flex items-center gap-2"
+            title="Start from the beginning"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="hidden sm:inline">Start Over</span>
+          </button>
         )}
       </div>
 
