@@ -18,6 +18,8 @@ interface SwipeableCardProps {
   total: number;
   triggerSwipe?: "left" | "right" | null;
   isTriggeredCard?: boolean;
+  isTopPick?: boolean;
+  matchScore?: number;
 }
 
 export default function SwipeableCard({
@@ -27,6 +29,8 @@ export default function SwipeableCard({
   total,
   triggerSwipe,
   isTriggeredCard = false,
+  isTopPick = false,
+  matchScore,
 }: SwipeableCardProps) {
   const [imageIndex, setImageIndex] = useState(0);
   const [exitX, setExitX] = useState(0);
@@ -312,6 +316,31 @@ export default function SwipeableCard({
                     {listing.title}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Match Score Badge */}
+            {matchScore !== undefined && (
+              <div className="absolute top-4 left-4 z-20">
+                {isTopPick ? (
+                  // Top Pick badge (80%+)
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-yellow-300 rounded-full shadow-lg border-2 border-white">
+                    <svg className="w-4 h-4 text-amber-700 fill-amber-700" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    <span className="text-xs font-bold text-amber-900">Top Pick</span>
+                    <span className="text-xs font-semibold text-amber-800">
+                      {Math.round(matchScore)}%
+                    </span>
+                  </div>
+                ) : (
+                  // Regular match score (below 80%)
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-md border border-gray-200 dark:border-gray-700">
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      {Math.round(matchScore)}% match
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

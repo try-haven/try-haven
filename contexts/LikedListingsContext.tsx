@@ -68,6 +68,8 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
     if (!user) {
       setLikedIds(new Set());
       previousLikedIds.current = new Set();
+      // Clear localStorage when no user
+      localStorage.removeItem("haven_liked_listings");
       setLoading(false);
       return;
     }
@@ -79,6 +81,8 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
     const idsSet = new Set(ids);
     setLikedIds(idsSet);
     previousLikedIds.current = new Set(idsSet);
+    // Save to localStorage for personalization engine
+    localStorage.setItem("haven_liked_listings", JSON.stringify(ids));
     setLoading(false);
   }, [user]);
 
@@ -120,6 +124,8 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
       } else {
         newSet.add(listingId);
       }
+      // Save to localStorage immediately for personalization engine
+      localStorage.setItem("haven_liked_listings", JSON.stringify(Array.from(newSet)));
       return newSet;
     });
 
@@ -137,6 +143,8 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
         } else {
           newSet.delete(listingId);
         }
+        // Update localStorage with reverted state
+        localStorage.setItem("haven_liked_listings", JSON.stringify(Array.from(newSet)));
         return newSet;
       });
     } else {
@@ -178,6 +186,10 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
       // Update previous ref
       previousLikedIds.current = newSetCopy;
+
+      // Save to localStorage immediately for personalization engine
+      const likedArray = Array.from(newSetCopy);
+      localStorage.setItem("haven_liked_listings", JSON.stringify(likedArray));
 
       // Queue operations for batched sync
       if (added.length > 0 || removed.length > 0) {

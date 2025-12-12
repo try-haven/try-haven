@@ -8,16 +8,24 @@ import AdOverlay from "./AdOverlay";
 import AdCard from "./AdCard";
 import { useUser } from "@/contexts/UserContext";
 
+// Extended listing type with recommendation scores
+interface ListingWithScore extends ApartmentListing {
+  matchScore?: number;
+  isTopPick?: boolean;
+}
+
 interface CardStackProps {
-  listings: ApartmentListing[];
+  listings: (ApartmentListing | ListingWithScore)[];
   onLikedChange: (likedIds: Set<string>) => void;
   initialLikedIds?: Set<string>;
   onViewLiked?: () => void;
   initialCompleted?: boolean;
   onCompletedChange?: (completed: boolean) => void;
+  showMatchScores?: boolean;
+  onSwipeCountUpdate?: () => void;
 }
 
-export default function CardStack({ listings, onLikedChange, initialLikedIds = new Set(), onViewLiked, initialCompleted = false, onCompletedChange }: CardStackProps) {
+export default function CardStack({ listings, onLikedChange, initialLikedIds = new Set(), onViewLiked, initialCompleted = false, onCompletedChange, showMatchScores = false, onSwipeCountUpdate }: CardStackProps) {
   const { user } = useUser();
 
   // Load saved position from localStorage on mount
@@ -146,6 +154,14 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       userId: user.username
     });
     localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
+
+    // Also save to reviewed listings for personalization engine
+    const reviewedData = localStorage.getItem("haven_reviewed_listings");
+    const reviewed = reviewedData ? JSON.parse(reviewedData) : [];
+    if (!reviewed.includes(listingId)) {
+      reviewed.push(listingId);
+      localStorage.setItem("haven_reviewed_listings", JSON.stringify(reviewed));
+    }
   };
 
   // Sync completion state when navigating back
@@ -249,6 +265,9 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
       // Track swipe metrics
       trackSwipe(listingId, direction);
 
+      // Notify parent component of swipe count update
+      onSwipeCountUpdate?.();
+
       // Auto-hide undo button after 5 seconds
       setTimeout(() => {
         setCanUndo(false);
@@ -309,12 +328,24 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
         events.splice(eventIndex, 1);
         localStorage.setItem("haven_listing_metric_events", JSON.stringify(events));
       }
+
+      // Also remove from reviewed listings for personalization engine
+      const reviewedData = localStorage.getItem("haven_reviewed_listings");
+      const reviewed = reviewedData ? JSON.parse(reviewedData) : [];
+      const reviewedIndex = reviewed.indexOf(listingId);
+      if (reviewedIndex !== -1) {
+        reviewed.splice(reviewedIndex, 1);
+        localStorage.setItem("haven_reviewed_listings", JSON.stringify(reviewed));
+      }
     }
 
     // Clear undo state
     setLastSwipe(null);
     setCanUndo(false);
     setSwipeCount((prev) => Math.max(0, prev - 1));
+
+    // Notify parent component of swipe count update
+    onSwipeCountUpdate?.();
   };
 
   const handleLike = () => {
@@ -557,6 +588,8 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
                   total={Math.min(3, items.length - currentIndex)}
                   triggerSwipe={isTriggeredCard ? triggerSwipe : null}
                   isTriggeredCard={isTriggeredCard}
+                  isTopPick={(item.data as any).isTopPick}
+                  matchScore={showMatchScores ? (item.data as any).matchScore : undefined}
                 />
               );
             }

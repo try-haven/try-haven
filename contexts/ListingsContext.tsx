@@ -32,6 +32,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         amenities: listing.amenities || [],
         description: listing.description,
         availableFrom: listing.available_from,
+        averageRating: listing.average_rating ? Number(listing.average_rating) : undefined,
+        totalRatings: listing.total_ratings || undefined,
       }));
       setListings(convertedListings);
     } catch (error) {

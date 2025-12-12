@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AddressInput from "@/components/AddressInput";
 import CommutePreference from "@/components/CommutePreference";
+import ApartmentPreferences from "@/components/ApartmentPreferences";
 import { useUser } from "@/contexts/UserContext";
 
 type CommuteOption = "car" | "public-transit" | "walk" | "bike";
@@ -12,19 +13,27 @@ function PreferencesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, updatePreferences, isLoggedIn, isManager } = useUser();
-  const [step, setStep] = useState<"address" | "commute">("address");
+  const [step, setStep] = useState<"address" | "commute" | "apartment">("address");
   const [userAddress, setUserAddress] = useState<string>("");
+  const [userCommute, setUserCommute] = useState<CommuteOption[]>([]);
 
   useEffect(() => {
     // Check for step query parameter
     const stepParam = searchParams.get("step");
     if (stepParam === "commute") {
       setStep("commute");
+    } else if (stepParam === "apartment") {
+      setStep("apartment");
     }
 
     // Load current address from user preferences
     if (user?.preferences?.address) {
       setUserAddress(user.preferences.address);
+    }
+
+    // Load current commute options from user preferences
+    if (user?.preferences?.commute) {
+      setUserCommute(user.preferences.commute);
     }
   }, [searchParams, user]);
 
@@ -48,17 +57,20 @@ function PreferencesContent() {
   // This prevents the confirmation dialog from showing on first setup
   const currentAddress = user?.preferences?.address;
   const currentCommuteOptions = user?.preferences?.commute;
+  const currentApartmentPreferences = {
+    priceMin: user?.preferences?.priceMin,
+    priceMax: user?.preferences?.priceMax,
+    bedrooms: user?.preferences?.bedrooms,
+    bathrooms: user?.preferences?.bathrooms,
+    sqftMin: user?.preferences?.sqftMin,
+    sqftMax: user?.preferences?.sqftMax,
+  };
 
   if (step === "address") {
     return (
       <AddressInput
         onNext={(address) => {
           setUserAddress(address);
-          // Update preferences in user context (partially)
-          updatePreferences({
-            ...user?.preferences,
-            address,
-          });
           setStep("commute");
         }}
         onBack={() => router.push("/swipe")}
@@ -67,18 +79,37 @@ function PreferencesContent() {
     );
   }
 
+  if (step === "commute") {
+    return (
+      <CommutePreference
+        onNext={(options: CommuteOption[]) => {
+          setUserCommute(options);
+          setStep("apartment");
+        }}
+        onBack={() => setStep("address")}
+        initialOptions={currentCommuteOptions}
+      />
+    );
+  }
+
   return (
-    <CommutePreference
-      onNext={(options: CommuteOption[]) => {
-        // Update preferences in user context (complete)
+    <ApartmentPreferences
+      onNext={(apartmentPrefs) => {
+        // Update all preferences in user context
         updatePreferences({
           address: userAddress || currentAddress || "",
-          commute: options,
+          commute: userCommute.length > 0 ? userCommute : currentCommuteOptions || [],
+          priceMin: apartmentPrefs.priceMin,
+          priceMax: apartmentPrefs.priceMax,
+          bedrooms: apartmentPrefs.bedrooms,
+          bathrooms: apartmentPrefs.bathrooms,
+          sqftMin: apartmentPrefs.sqftMin,
+          sqftMax: apartmentPrefs.sqftMax,
         });
         router.push("/swipe");
       }}
-      onBack={() => setStep("address")}
-      initialOptions={currentCommuteOptions}
+      onBack={() => setStep("commute")}
+      initialPreferences={currentApartmentPreferences}
     />
   );
 }

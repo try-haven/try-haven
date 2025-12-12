@@ -10,7 +10,10 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "seed": "tsx scripts/seed-listings.ts"
+    "seed": "tsx scripts/seed-listings.ts",
+    "clear-listings": "tsx scripts/clear-listings.ts",
+    "reset-user": "tsx scripts/reset-user-preferences.ts",
+    "check-geocoding": "tsx scripts/check-geocoding.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.87.1",

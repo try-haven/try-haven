@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { geocodeAddress } from './geocoding';
 
 // Types
 export interface Listing {
@@ -16,6 +17,8 @@ export interface Listing {
   available_from: string;
   latitude?: number;
   longitude?: number;
+  average_rating?: number;
+  total_ratings?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -54,9 +57,18 @@ export async function getManagerListings(managerId: string): Promise<Listing[]> 
 
 export async function createListing(listing: Omit<Listing, 'id' | 'created_at' | 'updated_at'>): Promise<Listing | null> {
   try {
+    // Geocode the address to get latitude and longitude
+    const coords = await geocodeAddress(listing.address);
+
+    const listingWithCoords = {
+      ...listing,
+      latitude: coords?.latitude || null,
+      longitude: coords?.longitude || null,
+    };
+
     const { data, error } = await supabase
       .from('listings')
-      .insert(listing)
+      .insert(listingWithCoords)
       .select()
       .single();
 
@@ -70,9 +82,21 @@ export async function createListing(listing: Omit<Listing, 'id' | 'created_at' |
 
 export async function updateListing(id: string, updates: Partial<Listing>): Promise<boolean> {
   try {
+    let updatesWithCoords = { ...updates };
+
+    // If address is being updated, geocode the new address
+    if (updates.address) {
+      const coords = await geocodeAddress(updates.address);
+      updatesWithCoords = {
+        ...updates,
+        latitude: coords?.latitude || null,
+        longitude: coords?.longitude || null,
+      };
+    }
+
     const { error } = await supabase
       .from('listings')
-      .update(updates)
+      .update(updatesWithCoords)
       .eq('id', id);
 
     return !error;

@@ -3,13 +3,38 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { geocodeAddress } from "@/lib/geocoding";
 
 type CommuteOption = "car" | "public-transit" | "walk" | "bike";
 type UserType = "searcher" | "manager";
 
+interface LearnedPreferences {
+  priceMin?: number;
+  priceMax?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqftMin?: number;
+  sqftMax?: number;
+  preferredAmenities?: Record<string, number>; // Amenity -> weight
+  preferredLocations?: string[]; // City/neighborhood keywords
+  avgImageCount?: number;
+  avgDescriptionLength?: number;
+  updatedAt?: string;
+}
+
 interface UserPreferences {
   address?: string;
   commute?: CommuteOption[];
+  minRating?: number;
+  // Apartment preferences (optional - if not set, use learned values)
+  priceMin?: number;
+  priceMax?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  sqftMin?: number;
+  sqftMax?: number;
+  // Learned preferences (automatically calculated from swipe behavior)
+  learned?: LearnedPreferences;
 }
 
 interface Profile {
@@ -41,6 +66,7 @@ interface UserContextType {
   hasReviewedListing: (listingId: string) => Promise<boolean>;
   markListingAsReviewed: (listingId: string) => Promise<void>;
   updatePreferences: (preferences: UserPreferences) => Promise<void>;
+  updateLearnedPreferences: (learned: LearnedPreferences) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -104,7 +130,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
           userType: profile.user_type as UserType,
           preferences: {
             address: profile.address,
+            latitude: profile.latitude,
+            longitude: profile.longitude,
             commute: profile.commute_options as CommuteOption[],
+            minRating: profile.min_rating,
+            priceMin: profile.price_min,
+            priceMax: profile.price_max,
+            bedrooms: profile.bedrooms,
+            bathrooms: profile.bathrooms,
+            sqftMin: profile.sqft_min,
+            sqftMax: profile.sqft_max,
+            learned: {
+              priceMin: profile.learned_price_min,
+              priceMax: profile.learned_price_max,
+              bedrooms: profile.learned_bedrooms,
+              bathrooms: profile.learned_bathrooms,
+              sqftMin: profile.learned_sqft_min,
+              sqftMax: profile.learned_sqft_max,
+              preferredAmenities: profile.learned_preferred_amenities || {},
+              preferredLocations: profile.learned_preferred_locations || [],
+              avgImageCount: profile.learned_avg_image_count,
+              avgDescriptionLength: profile.learned_avg_description_length,
+              updatedAt: profile.learned_preferences_updated_at,
+            },
           },
         });
       }
@@ -245,11 +293,26 @@ export function UserProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     try {
+      // Geocode the address if it's being updated
+      let coords = null;
+      if (preferences.address) {
+        coords = await geocodeAddress(preferences.address);
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update({
           address: preferences.address,
+          latitude: coords?.latitude || null,
+          longitude: coords?.longitude || null,
           commute_options: preferences.commute,
+          min_rating: preferences.minRating,
+          price_min: preferences.priceMin,
+          price_max: preferences.priceMax,
+          bedrooms: preferences.bedrooms,
+          bathrooms: preferences.bathrooms,
+          sqft_min: preferences.sqftMin,
+          sqft_max: preferences.sqftMax,
         })
         .eq('id', user.id);
 
@@ -257,10 +320,53 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       setUser({
         ...user,
-        preferences,
+        preferences: {
+          ...preferences,
+          latitude: coords?.latitude,
+          longitude: coords?.longitude,
+        },
       });
     } catch (error) {
       console.error("Error updating preferences:", error);
+    }
+  };
+
+  const updateLearnedPreferences = async (learned: LearnedPreferences) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          learned_price_min: learned.priceMin,
+          learned_price_max: learned.priceMax,
+          learned_bedrooms: learned.bedrooms,
+          learned_bathrooms: learned.bathrooms,
+          learned_sqft_min: learned.sqftMin,
+          learned_sqft_max: learned.sqftMax,
+          learned_preferred_amenities: learned.preferredAmenities || {},
+          learned_preferred_locations: learned.preferredLocations || [],
+          learned_avg_image_count: learned.avgImageCount,
+          learned_avg_description_length: learned.avgDescriptionLength,
+          learned_preferences_updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // Update local user state
+      setUser({
+        ...user,
+        preferences: {
+          ...user.preferences,
+          learned: {
+            ...learned,
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error updating learned preferences:", error);
     }
   };
 
@@ -277,6 +383,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         hasReviewedListing,
         markListingAsReviewed,
         updatePreferences,
+        updateLearnedPreferences,
       }}
     >
       {children}
