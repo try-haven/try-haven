@@ -527,6 +527,10 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
               if (onCompletedChange) {
                 onCompletedChange(false);
               }
+              // Clear reviewed listings so user can see all listings again
+              localStorage.removeItem("haven_reviewed_listings");
+              // Reset swipe position
+              localStorage.setItem("haven_swipe_position", "0");
               // Don't reset liked listings - keep them!
             }}
             className="px-6 py-3 bg-indigo-600 text-white rounded-full font-semibold hover:bg-indigo-700 transition-colors"
@@ -756,6 +760,8 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
               setCurrentIndex(0);
               setSwipedListings(new Set());
               localStorage.setItem('haven_swipe_position', '0');
+              // Clear reviewed listings so user can see all listings again
+              localStorage.removeItem("haven_reviewed_listings");
               if (onCompletedChange) {
                 onCompletedChange(false);
               }
