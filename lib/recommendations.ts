@@ -10,10 +10,6 @@ interface ScoringWeights {
 
 // Learned preferences stored in database (uses Record for JSON compatibility)
 interface LearnedPreferences {
-  priceMin?: number;
-  priceMax?: number;
-  sqftMin?: number;
-  sqftMax?: number;
   preferredAmenities?: Record<string, number>; // Amenity -> weight (stored as Record for database)
   avgImageCount?: number; // Average number of images in liked listings
   avgDescriptionLength?: number; // Average description length in liked listings
@@ -22,10 +18,6 @@ interface LearnedPreferences {
 
 // Internal learned preferences (uses Map for efficient lookups)
 interface LearnedPreferencesInternal {
-  priceMin?: number;
-  priceMax?: number;
-  sqftMin?: number;
-  sqftMax?: number;
   preferredAmenities?: Map<string, number>; // Amenity -> frequency in liked listings (internal use)
   avgImageCount?: number; // Average number of images in liked listings
   avgDescriptionLength?: number; // Average description length in liked listings
@@ -42,8 +34,6 @@ interface UserPreferences {
   bedroomsMax?: number;
   bathroomsMin?: number;
   bathroomsMax?: number;
-  sqftMin?: number;
-  sqftMax?: number;
   minRating?: number; // Minimum average rating (0-5 scale)
   weights?: ScoringWeights; // Custom scoring weights (defaults to 40/35/15/10)
   learned?: LearnedPreferences; // Learned preferences from swipe behavior
@@ -95,16 +85,6 @@ function learnFromSwipeHistory(
     return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
   };
 
-  // Learn basic numeric preferences
-  const prices = likedListings.map((l) => l.price);
-  const bedroomCounts = likedListings.map((l) => l.bedrooms);
-  const bathroomCounts = likedListings.map((l) => l.bathrooms);
-  const sqfts = likedListings.map((l) => l.sqft);
-
-  const avgPrice = median(prices);
-  const avgBedrooms = Math.round(median(bedroomCounts));
-  const avgBathrooms = Math.round(median(bathroomCounts)); // Round to nearest integer
-  const avgSqft = median(sqfts);
 
   // Learn amenity preferences
   const amenityFrequency = new Map<string, number>();
@@ -150,14 +130,8 @@ function learnFromSwipeHistory(
   const avgImageCount = imageCounts.length > 0 ? median(imageCounts) : undefined;
   const avgDescriptionLength = descriptionLengths.length > 0 ? Math.round(median(descriptionLengths)) : undefined;
 
-  // Create range around median values (±20% for price/sqft)
+  // Return learned preferences
   return {
-    priceMin: Math.floor(avgPrice * 0.8),
-    priceMax: Math.ceil(avgPrice * 1.2),
-    bedrooms: avgBedrooms,
-    bathrooms: avgBathrooms,
-    sqftMin: Math.floor(avgSqft * 0.8),
-    sqftMax: Math.ceil(avgSqft * 1.2),
     preferredAmenities: amenityFrequency,
     avgImageCount,
     avgDescriptionLength,
@@ -377,10 +351,6 @@ function convertStoredLearnedPreferences(stored: any): LearnedPreferencesInterna
   const amenitiesRecord = stored.preferredAmenities as Record<string, number> | undefined;
 
   return {
-    priceMin: stored.priceMin,
-    priceMax: stored.priceMax,
-    sqftMin: stored.sqftMin,
-    sqftMax: stored.sqftMax,
     preferredAmenities: amenitiesRecord ? new Map(Object.entries(amenitiesRecord)) : undefined,
     avgImageCount: stored.avgImageCount,
     avgDescriptionLength: stored.avgDescriptionLength,

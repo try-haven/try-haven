@@ -56,7 +56,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
         setJustSignedUp(true);
         onSignUp();
       } else {
-        setError(result.error || "An account with this email or username already exists. Please log in instead.");
+        setError(result.error || "Signup failed. Please try again.");
       }
     } else {
       if (!username || !password) {

@@ -9,12 +9,6 @@ type CommuteOption = "car" | "public-transit" | "walk" | "bike";
 type UserType = "searcher" | "manager";
 
 interface LearnedPreferences {
-  priceMin?: number;
-  priceMax?: number;
-  bedrooms?: number;
-  bathrooms?: number;
-  sqftMin?: number;
-  sqftMax?: number;
   preferredAmenities?: Record<string, number>; // Amenity -> weight
   preferredLocations?: string[]; // City/neighborhood keywords
   avgImageCount?: number;
@@ -42,8 +36,6 @@ interface UserPreferences {
   bedroomsMax?: number;
   bathroomsMin?: number;
   bathroomsMax?: number;
-  sqftMin?: number;
-  sqftMax?: number;
   // Scoring weights (customizable - defaults to 40/35/15/10)
   weights?: ScoringWeights;
   // Learned preferences (automatically calculated from swipe behavior)
@@ -153,8 +145,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
             bedroomsMax: profile.bedrooms_max,
             bathroomsMin: profile.bathrooms_min,
             bathroomsMax: profile.bathrooms_max,
-            sqftMin: profile.sqft_min,
-            sqftMax: profile.sqft_max,
             weights: {
               distance: profile.weight_distance ?? 40,
               amenities: profile.weight_amenities ?? 35,
@@ -162,12 +152,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
               rating: profile.weight_rating ?? 10,
             },
             learned: {
-              priceMin: profile.learned_price_min,
-              priceMax: profile.learned_price_max,
-              bedrooms: profile.learned_bedrooms,
-              bathrooms: profile.learned_bathrooms,
-              sqftMin: profile.learned_sqft_min,
-              sqftMax: profile.learned_sqft_max,
               preferredAmenities: profile.learned_preferred_amenities || {},
               avgImageCount: profile.learned_avg_image_count,
               avgDescriptionLength: profile.learned_avg_description_length,
@@ -183,15 +167,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, username: string, password: string, userType: UserType = "searcher"): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Check if username is already taken
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('username', username)
-        .single();
+      // Check if username is already taken using RPC function (safer than direct SELECT)
+      const { data: isAvailable, error: checkError } = await supabase
+        .rpc('check_username_available', { username_input: username });
 
-      if (existingProfile) {
-        return { success: false, error: "Username already taken" };
+      if (checkError) {
+        console.error("Username check error:", checkError);
+        // If check fails, continue with signup - backend will catch it
+        // Better UX than blocking signup entirely
+      } else if (isAvailable === false) {
+        return {
+          success: false,
+          error: `The username "${username}" is already taken. Please try a different username.`
+        };
       }
 
       // Sign up with Supabase Auth
@@ -208,7 +196,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error("Signup error:", error);
-        return { success: false, error: error.message };
+
+        // Handle specific Supabase Auth errors with helpful messages
+        if (error.message.includes("already registered") || error.message.includes("already been registered")) {
+          return {
+            success: false,
+            error: "This email is already registered. Please log in instead or use a different email."
+          };
+        }
+
+        if (error.message.includes("Database error")) {
+          return {
+            success: false,
+            error: "Unable to create account. The username might already be taken. Please try a different username."
+          };
+        }
+
+        if (error.message.includes("Password")) {
+          return { success: false, error: "Password must be at least 6 characters long." };
+        }
+
+        if (error.message.includes("Invalid email")) {
+          return { success: false, error: "Please enter a valid email address." };
+        }
+
+        // Generic error with more helpful text
+        return { success: false, error: `Signup failed: ${error.message}. Please try again.` };
       }
 
       if (data.user) {
@@ -221,10 +234,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         return { success: true };
       }
 
-      return { success: false, error: "Signup failed" };
+      return { success: false, error: "Signup failed. Please try again." };
     } catch (error) {
       console.error("Signup error:", error);
-      return { success: false, error: "An unexpected error occurred" };
+      return {
+        success: false,
+        error: "An unexpected error occurred. Please check your internet connection and try again."
+      };
     }
   };
 
@@ -333,8 +349,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
           bedrooms_max: preferences.bedroomsMax,
           bathrooms_min: preferences.bathroomsMin,
           bathrooms_max: preferences.bathroomsMax,
-          sqft_min: preferences.sqftMin,
-          sqft_max: preferences.sqftMax,
           weight_distance: preferences.weights?.distance,
           weight_amenities: preferences.weights?.amenities,
           weight_quality: preferences.weights?.quality,
@@ -364,12 +378,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase
         .from('profiles')
         .update({
-          learned_price_min: learned.priceMin,
-          learned_price_max: learned.priceMax,
-          learned_bedrooms: learned.bedrooms,
-          learned_bathrooms: learned.bathrooms,
-          learned_sqft_min: learned.sqftMin,
-          learned_sqft_max: learned.sqftMax,
           learned_preferred_amenities: learned.preferredAmenities || {},
           learned_avg_image_count: learned.avgImageCount,
           learned_avg_description_length: learned.avgDescriptionLength,

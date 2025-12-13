@@ -138,6 +138,22 @@ Haven is a web-based apartment search application that makes finding your next h
 
 Haven features a sophisticated, multi-stage recommendation system that combines explicit user preferences with behavioral learning to deliver highly personalized apartment suggestions. The system is designed to be intelligent, performant, and privacy-preserving.
 
+#### What's Learned from Your Swipes (Currently Active)
+- ✅ **Amenity preferences** - Pool, gym, parking, pet-friendly, etc. (weighted by like vs. dislike ratio)
+- ✅ **Quality preferences** - Preferred number of photos and description length
+- ✅ **Location scoring** - Distance-based scoring from your preferred address
+
+#### What's NOT Learned (Must Be Explicitly Set)
+- ⚠️ **Price range** - Must be set in preferences (not inferred from swipes)
+- ⚠️ **Bedrooms/Bathrooms** - Must be set in preferences (not inferred from swipes)
+- ⚠️ **Square footage** - Not used for filtering or scoring
+
+**Future Enhancements:**
+
+1. **Learned Price/Bedroom/Bathroom Fallbacks:** If we want the system to learn price, bedroom, and bathroom preferences from swipe behavior and use them as fallbacks when users haven't set explicit values, this would need to be implemented. Currently, these are treated as hard requirements that users must specify upfront.
+
+2. **Hybrid Amenity Preferences (Upfront + Learning):** Currently, amenity preferences are only learned from swipe behavior (requires 5+ swipes). A hybrid approach could allow users to select initial amenity preferences during onboarding (checkboxes for Pool, Gym, Parking, Pet-friendly, etc.), then continue refining these preferences based on actual swipe behavior. This would give new users immediate personalization while still benefiting from behavioral learning over time.
+
 ---
 
 ## Architecture Overview
@@ -168,9 +184,9 @@ Hard filters eliminate listings that don't meet fundamental requirements. These 
 | Filter | Tolerance | Example | Technical Notes |
 |--------|-----------|---------|-----------------|
 | **Location (State)** | Exact state match | User in "San Francisco, CA" → Only shows CA listings | Uses state extraction with comprehensive 50-state mapping. Handles abbreviations (CA, Calif, California). **Prevents cross-country false matches** (e.g., "Cambridge" won't match "CA"). |
-| **Price Range** | ±40% buffer | User wants $2000 → Shows $1200-$2800 | Generous buffer to avoid over-filtering. If user sets min=$1500, max=$2500 → shows $900-$3500. Can be learned from swipe behavior if not explicitly set. |
-| **Bedrooms** | ±1 bedroom | User wants 2br → Shows 1-3br | Allows flexibility (studio to 3br for 2br preference). Exact match scores higher in amenity preference learning. |
-| **Bathrooms** | ±0.5 bathroom | User wants 2ba → Shows 1.5-2.5ba | Handles half-bathrooms (1.5, 2.5, etc.). Tolerance accounts for "close enough" matches. |
+| **Price Range** | ±40% buffer | User wants $2000 → Shows $1200-$2800 | Generous buffer to avoid over-filtering. If user sets min=$1500, max=$2500 → shows $900-$3500. **Must be explicitly set by user** (not learned from behavior). |
+| **Bedrooms** | Range-based | User wants 1-3br → Shows 1-3br only | Exact range matching. **Must be explicitly set by user** (not learned from behavior). |
+| **Bathrooms** | Range-based | User wants 1.5-2.5ba → Shows 1.5-2.5ba only | Handles half-bathrooms (1.5, 2.5, etc.). **Must be explicitly set by user** (not learned from behavior). |
 | **Minimum Rating** | Exact threshold | User sets 3.5★ min → Only 3.5★+ listings | Filters out poorly-rated properties. **New listings with no reviews pass through** (benefit of the doubt). |
 
 ### Why These Specific Tolerances?
@@ -288,10 +304,18 @@ avg_desc_length = median(liked_desc_lengths)
 - Future listings are scored higher if they match this quality level
 - Prevents showing low-effort listings to quality-conscious users
 
-#### 3. **Basic Preferences** (Price, Bedrooms, Bathrooms, Sqft)
+#### 3. **Basic Preferences (Price, Bedrooms, Bathrooms, Sqft)** - ⚠️ NOT CURRENTLY IMPLEMENTED
+
+**Current State:**
+- These filters **must be explicitly set by the user** in preferences
+- The system does **NOT** learn these values from swipe behavior
+- No fallback to learned values if user hasn't set them
+
+**Future Enhancement:**
+If we want to implement learning for these in the future, the algorithm would be:
 
 ```python
-# Learn implicit preferences from liked listings
+# Proposed implementation (NOT ACTIVE)
 liked_prices = [listing.price for listing in liked_listings]
 liked_bedrooms = [listing.bedrooms for listing in liked_listings]
 # ... same for bathrooms, sqft
@@ -299,16 +323,17 @@ liked_bedrooms = [listing.bedrooms for listing in liked_listings]
 learned_price_median = median(liked_prices)
 learned_price_range = (median × 0.8, median × 1.2)  # ±20% around median
 
-# These become fallback filters if user didn't set explicit preferences
+# Use as fallback if user didn't set explicit preferences
 if not user.preferences.priceMin:
     user.preferences.priceMin = learned_price_range[0]
 if not user.preferences.priceMax:
     user.preferences.priceMax = learned_price_range[1]
 ```
 
-**Why median instead of mean?**
-- Median is robust to outliers (won't skew if user accidentally likes one $10k/month listing)
-- Better represents "typical" preference
+**Why not implemented?**
+- Price, bedrooms, bathrooms, and sqft are typically **explicit user requirements**, not learned preferences
+- Users generally know these constraints upfront ("I need 2 bedrooms" or "My budget is $2000")
+- Learning these could override important user requirements with inferred values
 
 ---
 
@@ -332,8 +357,6 @@ ALTER TABLE profiles ADD COLUMN
   bedrooms_max INTEGER,
   bathrooms_min NUMERIC,
   bathrooms_max NUMERIC,
-  sqft_min INTEGER,
-  sqft_max INTEGER,
   min_rating NUMERIC,
   weight_distance INTEGER,       -- Default 40 (40% of total score)
   weight_amenities INTEGER,      -- Default 35 (35% of total score)
@@ -341,16 +364,18 @@ ALTER TABLE profiles ADD COLUMN
   weight_rating INTEGER,         -- Default 10 (10% of total score)
 
   -- Learned preferences (auto-calculated from swipe behavior)
-  learned_price_min INTEGER,
-  learned_price_max INTEGER,
-  learned_bedrooms INTEGER,
-  learned_bathrooms NUMERIC,     -- Supports half-bathrooms (1.5, 2.5, etc.)
-  learned_sqft_min INTEGER,
-  learned_sqft_max INTEGER,
+  -- Note: Sqft preferences were removed as they were not being used
   learned_preferred_amenities JSONB,  -- {"pool": 15.48, "gym": 5.0, ...}
-  learned_avg_image_count NUMERIC,
-  learned_avg_description_length INTEGER,
+  learned_avg_image_count NUMERIC,    -- Average image count in liked listings
+  learned_avg_description_length INTEGER,  -- Average description length in liked listings
   learned_preferences_updated_at TIMESTAMP;
+
+  -- Removed columns (not implemented, dead code):
+  -- learned_price_min, learned_price_max
+  -- learned_bedrooms_min, learned_bedrooms_max
+  -- learned_bathrooms_min, learned_bathrooms_max
+  -- learned_sqft_min, learned_sqft_max
+  -- These would need to be implemented if we want fallback learning in the future
 
 -- listings table
 ALTER TABLE listings ADD COLUMN
@@ -1035,9 +1060,8 @@ Currently using public APIs (OpenStreetMap). For production, you may want to:
 
 ### Fixed Issues ✅
 - ✅ **Distance not showing in score breakdown** - Fixed: Added latitude/longitude to ListingsContext mapping
-- ✅ **Learned preferences error** - Fixed: Added missing bedrooms/bathrooms to learned preferences return statement
+- ✅ **Removed unused learned preferences** - Removed: learned price, bedrooms, bathrooms, sqft columns (were calculated but never used for filtering/scoring)
 - ✅ **Removed unused location learning** - Removed: learned_preferred_locations feature (distance scoring is more accurate)
-- ✅ **Bathroom rounding error** - Fixed: Changed learned_bathrooms from INTEGER to NUMERIC to support half-bathrooms
 - ✅ **LocalStorage sync for liked listings** - Fixed: LikedListingsContext now saves to localStorage for personalization engine
 - ✅ **Learned preferences not saving** - Fixed: Saves immediately at 5 swipes + on page exit
 - ✅ **Distance ranking** - Fixed: Increased weight to 40%, punishing scoring for 50+ miles (0% score)

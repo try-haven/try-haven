@@ -64,8 +64,6 @@ function PreferencesContent() {
     bedroomsMax: user?.preferences?.bedroomsMax,
     bathroomsMin: user?.preferences?.bathroomsMin,
     bathroomsMax: user?.preferences?.bathroomsMax,
-    sqftMin: user?.preferences?.sqftMin,
-    sqftMax: user?.preferences?.sqftMax,
     minRating: user?.preferences?.minRating,
     weights: user?.preferences?.weights,
   };
@@ -109,8 +107,6 @@ function PreferencesContent() {
           bedroomsMax: apartmentPrefs.bedroomsMax,
           bathroomsMin: apartmentPrefs.bathroomsMin,
           bathroomsMax: apartmentPrefs.bathroomsMax,
-          sqftMin: apartmentPrefs.sqftMin,
-          sqftMax: apartmentPrefs.sqftMax,
           minRating: apartmentPrefs.minRating,
           weights: apartmentPrefs.weights,
         });

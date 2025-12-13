@@ -56,9 +56,6 @@ async function resetUserPreferences() {
         bedrooms_max: null,
         bathrooms_min: null,
         bathrooms_max: null,
-        // Square footage
-        sqft_min: null,
-        sqft_max: null,
         // Scoring weights (reset to defaults)
         weight_distance: 40,
         weight_amenities: 35,
@@ -68,12 +65,6 @@ async function resetUserPreferences() {
         bedrooms: null,
         bathrooms: null,
         // Learned personalization (automatically calculated from swipes)
-        learned_price_min: null,
-        learned_price_max: null,
-        learned_bedrooms: null,
-        learned_bathrooms: null,
-        learned_sqft_min: null,
-        learned_sqft_max: null,
         learned_preferred_amenities: {},
         learned_avg_image_count: null,
         learned_avg_description_length: null,

@@ -18,8 +18,6 @@ interface ApartmentPreferencesData {
   bedroomsMax?: number;
   bathroomsMin?: number;
   bathroomsMax?: number;
-  sqftMin?: number;
-  sqftMax?: number;
   minRating?: number;
   weights?: ScoringWeights;
 }
@@ -38,15 +36,12 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
   const [bedroomsMax, setBedroomsMax] = useState<string>(initialPreferences?.bedroomsMax?.toString() || "");
   const [bathroomsMin, setBathroomsMin] = useState<string>(initialPreferences?.bathroomsMin?.toString() || "");
   const [bathroomsMax, setBathroomsMax] = useState<string>(initialPreferences?.bathroomsMax?.toString() || "");
-  const [sqftMin, setSqftMin] = useState<string>(initialPreferences?.sqftMin?.toString() || "");
-  const [sqftMax, setSqftMax] = useState<string>(initialPreferences?.sqftMax?.toString() || "");
   const [minRating, setMinRating] = useState<string>(initialPreferences?.minRating?.toString() || "");
 
   // State for "no preference" toggles
   const [noPricePreference, setNoPricePreference] = useState(!initialPreferences?.priceMin && !initialPreferences?.priceMax);
   const [noBedroomsPreference, setNoBedroomsPreference] = useState(!initialPreferences?.bedroomsMin && !initialPreferences?.bedroomsMax);
   const [noBathroomsPreference, setNoBathroomsPreference] = useState(!initialPreferences?.bathroomsMin && !initialPreferences?.bathroomsMax);
-  const [noSqftPreference, setNoSqftPreference] = useState(!initialPreferences?.sqftMin && !initialPreferences?.sqftMax);
   const [noRatingPreference, setNoRatingPreference] = useState(!initialPreferences?.minRating);
 
   // State for scoring weights
@@ -130,28 +125,6 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
       preferences.bathroomsMax = maxBathrooms;
     }
 
-    // Validate and add sqft range
-    if (!noSqftPreference) {
-      const minSqft = sqftMin ? parseInt(sqftMin, 10) : undefined;
-      const maxSqft = sqftMax ? parseInt(sqftMax, 10) : undefined;
-
-      if (minSqft !== undefined && isNaN(minSqft)) {
-        setError("Please enter a valid minimum square footage");
-        return;
-      }
-      if (maxSqft !== undefined && isNaN(maxSqft)) {
-        setError("Please enter a valid maximum square footage");
-        return;
-      }
-      if (minSqft !== undefined && maxSqft !== undefined && minSqft > maxSqft) {
-        setError("Minimum square footage cannot be greater than maximum");
-        return;
-      }
-
-      preferences.sqftMin = minSqft;
-      preferences.sqftMax = maxSqft;
-    }
-
     // Validate and add minimum rating
     if (!noRatingPreference) {
       const ratingNum = minRating ? parseFloat(minRating) : undefined;
@@ -162,21 +135,20 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
       preferences.minRating = ratingNum;
     }
 
-    // Validate and add scoring weights
-    if (!useDefaultWeights) {
-      const totalWeight = weightDistance + weightAmenities + weightQuality + weightRating;
-      if (totalWeight !== 100) {
-        setError(`Scoring weights must sum to 100% (currently ${totalWeight}%)`);
-        return;
-      }
-
-      preferences.weights = {
-        distance: weightDistance,
-        amenities: weightAmenities,
-        quality: weightQuality,
-        rating: weightRating,
-      };
+    // Validate and add scoring weights (always save, even if using defaults)
+    const totalWeight = weightDistance + weightAmenities + weightQuality + weightRating;
+    if (!useDefaultWeights && totalWeight !== 100) {
+      // Only validate if user customized weights
+      setError(`Scoring weights must sum to 100% (currently ${totalWeight}%)`);
+      return;
     }
+
+    preferences.weights = {
+      distance: weightDistance,
+      amenities: weightAmenities,
+      quality: weightQuality,
+      rating: weightRating,
+    };
 
     onNext(preferences);
   };
@@ -347,58 +319,6 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
                     placeholder="2"
                     min="0"
                     step="0.5"
-                    className={inputStyles.standard}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Square Footage */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
-              <label className="text-sm font-medium text-gray-900 dark:text-white">
-                Square Footage
-              </label>
-              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={noSqftPreference}
-                  onChange={(e) => {
-                    setNoSqftPreference(e.target.checked);
-                    if (e.target.checked) {
-                      setSqftMin("");
-                      setSqftMax("");
-                    }
-                  }}
-                  className="rounded"
-                />
-                No preference
-              </label>
-            </div>
-            {!noSqftPreference && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Min (sqft)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={sqftMin}
-                    onChange={(e) => setSqftMin(e.target.value)}
-                    placeholder="600"
-                    className={inputStyles.standard}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Max (sqft)</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    value={sqftMax}
-                    onChange={(e) => setSqftMax(e.target.value)}
-                    placeholder="1200"
                     className={inputStyles.standard}
                   />
                 </div>
