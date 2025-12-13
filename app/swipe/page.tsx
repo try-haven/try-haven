@@ -25,6 +25,7 @@ export default function SwipePage() {
   const [hasPersonalized, setHasPersonalized] = useState(false);
   const [showPersonalizedMessage, setShowPersonalizedMessage] = useState(false);
   const [totalSwipes, setTotalSwipes] = useState(0);
+  const [pendingPersonalization, setPendingPersonalization] = useState(false);
 
   // Initialize fake rental history on first load
   useEffect(() => {
@@ -43,6 +44,21 @@ export default function SwipePage() {
   const handleSwipeCountUpdate = () => {
     const swipeHistory = getSwipeHistory();
     setTotalSwipes(swipeHistory.length);
+
+    // Apply pending personalization AFTER the swipe (between cards, not during)
+    if (pendingPersonalization && !hasPersonalized) {
+      const newLearnedPreferences = calculateLearnedPreferences(listings, swipeHistory);
+      setSessionLearnedPreferences(newLearnedPreferences);
+      setHasPersonalized(true);
+      setPendingPersonalization(false);
+
+      // Save to database immediately
+      updateLearnedPreferences(newLearnedPreferences);
+
+      // Show success message briefly
+      setShowPersonalizedMessage(true);
+      setTimeout(() => setShowPersonalizedMessage(false), 4000);
+    }
   };
 
   // Check if this is a new user (for learning banner)
@@ -50,26 +66,17 @@ export default function SwipePage() {
   const swipesRemaining = Math.max(0, 5 - totalSwipes);
 
   // OPTION B: Re-rank ONCE after first 5 swipes (new users only - the "wow" moment)
-  // Then no more re-ranking during session (performance optimization)
+  // But DELAY the re-rank until the next swipe to avoid jarring card changes mid-view
   useEffect(() => {
-    if (!user || listings.length === 0 || hasPersonalized) return;
+    if (!user || listings.length === 0 || hasPersonalized || pendingPersonalization) return;
 
     const currentSwipeCount = getSwipeHistory().length;
 
-    // First-time personalization: recalculate and re-rank after 5 swipes
-    if (currentSwipeCount === 5 && !hasPersonalized) {
-      const newLearnedPreferences = calculateLearnedPreferences(listings, getSwipeHistory());
-      setSessionLearnedPreferences(newLearnedPreferences);
-      setHasPersonalized(true);
-
-      // Save to database immediately (don't wait for page exit)
-      updateLearnedPreferences(newLearnedPreferences);
-
-      // Show success message briefly
-      setShowPersonalizedMessage(true);
-      setTimeout(() => setShowPersonalizedMessage(false), 4000);
+    // After 5 swipes, mark personalization as pending (will apply on next swipe)
+    if (currentSwipeCount === 5) {
+      setPendingPersonalization(true);
     }
-  }, [likedIds, user, listings, hasPersonalized, updateLearnedPreferences]);
+  }, [likedIds, user, listings, hasPersonalized, pendingPersonalization]);
 
   // Save learned preferences when user leaves (captures all session progress)
   useEffect(() => {
