@@ -9,16 +9,16 @@ import { useListings } from "@/contexts/ListingsContext";
 
 export default function LikedListingsPage() {
   const router = useRouter();
-  const { user, isLoggedIn, loading } = useUser();
+  const { user, isLoggedIn } = useUser();
   const { likedIds, likedCount, toggleLike, loading: likedLoading } = useLikedListingsContext();
   const { listings, isLoading: isLoadingListings } = useListings();
 
-  // Redirect to home page if user logs out (but not during initial load)
+  // Redirect to home page if user logs out
   useEffect(() => {
-    if (!isLoggedIn && !loading) {
+    if (!isLoggedIn) {
       router.push("/");
     }
-  }, [isLoggedIn, loading, router]);
+  }, [isLoggedIn, router]);
 
   const likedListings = useMemo(() =>
     listings.filter((listing) => likedIds.has(listing.id)),
