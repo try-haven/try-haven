@@ -335,38 +335,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
     setLoading(true);
 
     try {
-      const userId = user.id;
+      // Call the RPC function to delete everything
+      console.log('[UserContext] Calling delete_user_account RPC...');
+      const { data, error: rpcError } = await supabase.rpc('delete_user_account');
 
-      // Delete all user data from database
-      console.log('[UserContext] Deleting user data...');
+      if (rpcError) {
+        console.error('[UserContext] RPC error:', rpcError);
+        return {
+          success: false,
+          error: `Database error: ${rpcError.message}. Make sure you've run the complete_account_deletion.sql migration.`
+        };
+      }
 
-      // Delete liked listings
-      await supabase
-        .from('liked_listings')
-        .delete()
-        .eq('user_id', userId);
+      console.log('[UserContext] RPC response:', data);
 
-      // Delete reviewed listings
-      await supabase
-        .from('reviewed_listings')
-        .delete()
-        .eq('user_id', userId);
-
-      // Delete profile (this should cascade to other related data)
-      await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      console.log('[UserContext] User data deleted');
-
-      // Delete the auth user - this requires admin privileges
-      // Since we're using the anon key, we'll use the RPC function to delete the user
-      const { error: deleteError } = await supabase.rpc('delete_user');
-
-      if (deleteError) {
-        console.error('[UserContext] Error deleting auth user:', deleteError);
-        // If we can't delete the auth user, still proceed with cleanup
+      // Check if the RPC function returned an error
+      if (data && !data.success) {
+        console.error('[UserContext] Deletion failed:', data.error);
+        return {
+          success: false,
+          error: data.error || "Failed to delete account"
+        };
       }
 
       // Clear all local storage
@@ -387,7 +376,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         });
       }
 
-      // Sign out
+      // Sign out (this should happen automatically since auth user is deleted, but do it anyway)
       await supabase.auth.signOut();
       setUser(null);
 
