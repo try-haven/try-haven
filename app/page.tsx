@@ -18,7 +18,7 @@ function HomeContent() {
   // But don't redirect if explicitly navigating to home via "Back to Home"
   // Wait for loading to complete before redirecting to avoid race conditions
   useEffect(() => {
-    if (!loading && isLoggedIn && view === "marketing" && !isExplicitHome) {
+    if (!loading && isLoggedIn && !isExplicitHome) {
       console.log('[HomePage] Redirecting logged-in user');
       if (isManager) {
         router.push("/manager/dashboard");
