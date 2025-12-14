@@ -30,6 +30,8 @@ function ListingContent() {
 
   // Fetch listing data directly without using contexts
   useEffect(() => {
+    let cancelled = false;
+
     async function loadListing() {
       if (!listingId) {
         setIsLoading(false);
@@ -38,9 +40,11 @@ function ListingContent() {
 
       try {
         const supabaseListings = await getAllListings();
+        if (cancelled) return;
+
         const found = supabaseListings.find(l => l.id === listingId);
 
-        if (found) {
+        if (found && !cancelled) {
           const converted: ApartmentListing = {
             id: found.id,
             title: found.title,
@@ -63,11 +67,17 @@ function ListingContent() {
       } catch (error) {
         console.error("Error loading listing:", error);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     }
 
     loadListing();
+
+    return () => {
+      cancelled = true;
+    };
   }, [listingId]);
 
   // Show loading state
