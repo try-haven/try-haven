@@ -24,10 +24,11 @@ function HomeContent() {
     if (!loading && isLoggedIn && !isExplicitHome && !hasRedirected.current) {
       console.log('[HomePage] Redirecting logged-in user');
       hasRedirected.current = true;
+      // Use replace instead of push to avoid navigation history issues
       if (isManager) {
-        router.push("/manager/dashboard");
+        router.replace("/manager/dashboard");
       } else {
-        router.push("/swipe");
+        router.replace("/swipe");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
