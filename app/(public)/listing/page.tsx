@@ -7,7 +7,6 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { textStyles, buttonStyles, badgeStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
-import DarkModeToggle from "@/components/DarkModeToggle";
 import { getAllListings } from "@/lib/listings";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
@@ -28,6 +27,27 @@ function ListingContent() {
   }>>([]);
   const [listing, setListing] = useState<ApartmentListing | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+
+  // Initialize dark mode from localStorage and system preference
+  useEffect(() => {
+    const stored = localStorage.getItem('darkMode');
+    if (stored !== null) {
+      setDarkMode(stored === 'true');
+    } else {
+      setDarkMode(window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+  }, []);
+
+  // Apply dark mode class to document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', String(darkMode));
+  }, [darkMode]);
 
   // Fetch listing data directly without using contexts
   useEffect(() => {
@@ -245,7 +265,13 @@ function ListingContent() {
               <h1 className={`${textStyles.heading} text-xl`}>Listing Details</h1>
             </div>
             <div className="flex items-center gap-3">
-              <DarkModeToggle />
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Toggle dark mode"
+              >
+                {darkMode ? '☀️' : '🌙'}
+              </button>
               <button
                 onClick={handleShare}
                 className={buttonStyles.secondary}

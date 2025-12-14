@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
-import { DarkModeProvider } from "@/contexts/DarkModeContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
   },
 };
 
-// Public route layout - no auth contexts needed for listing pages
+// Public route layout - completely standalone, no contexts
 export default function PublicLayout({
   children,
 }: Readonly<{
@@ -43,7 +42,7 @@ export default function PublicLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning
       >
-        <DarkModeProvider>{children}</DarkModeProvider>
+        {children}
       </body>
     </html>
   );
