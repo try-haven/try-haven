@@ -18,6 +18,7 @@ function HomeContent() {
   // But don't redirect if explicitly navigating to home via "Back to Home"
   // Wait for loading to complete before redirecting to avoid race conditions
   useEffect(() => {
+    console.log('[HomePage] useEffect check:', { loading, isLoggedIn, isExplicitHome, view });
     if (!loading && isLoggedIn && !isExplicitHome) {
       console.log('[HomePage] Redirecting logged-in user');
       if (isManager) {
