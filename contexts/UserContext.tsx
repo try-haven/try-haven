@@ -115,8 +115,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         // Set loading while fetching profile to prevent premature redirects
         setLoading(true);
-        await loadUserProfile(session.user);
-        setLoading(false);
+        try {
+          await loadUserProfile(session.user);
+        } catch (error) {
+          console.error('[UserContext] Error in auth state change handler:', error);
+        } finally {
+          setLoading(false);
+        }
       } else {
         setUser(null);
         setLoading(false);

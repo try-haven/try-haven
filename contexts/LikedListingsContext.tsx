@@ -77,13 +77,25 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
     setLoading(true);
 
-    // Load from database (since we now sync immediately, database should be source of truth)
-    const ids = await getLikedListings(user.id);
-    const idsSet = new Set(ids);
-    setLikedIds(idsSet);
-    previousLikedIds.current = new Set(idsSet);
-    localStorage.setItem("haven_liked_listings", JSON.stringify(ids));
-    setLoading(false);
+    try {
+      console.log('[LikedListingsContext] Loading liked listings for user:', user.id);
+      // Load from database (since we now sync immediately, database should be source of truth)
+      const ids = await getLikedListings(user.id);
+      console.log('[LikedListingsContext] Loaded', ids.length, 'liked listings');
+      const idsSet = new Set(ids);
+      setLikedIds(idsSet);
+      previousLikedIds.current = new Set(idsSet);
+      localStorage.setItem("haven_liked_listings", JSON.stringify(ids));
+    } catch (error) {
+      console.error('[LikedListingsContext] Error loading liked listings:', error);
+      // Set empty set on error so the UI doesn't get stuck
+      setLikedIds(new Set());
+      previousLikedIds.current = new Set();
+      localStorage.setItem("haven_liked_listings", JSON.stringify([]));
+    } finally {
+      setLoading(false);
+      console.log('[LikedListingsContext] Loading complete');
+    }
   }, [user]);
 
   // Load liked listings when user changes
@@ -116,18 +128,17 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
     const isCurrentlyLiked = likedIds.has(listingId);
 
+    // Calculate what the new set will be
+    const newSet = new Set(likedIds);
+    if (isCurrentlyLiked) {
+      newSet.delete(listingId);
+    } else {
+      newSet.add(listingId);
+    }
+
     // Optimistically update UI
-    setLikedIds(prev => {
-      const newSet = new Set(prev);
-      if (isCurrentlyLiked) {
-        newSet.delete(listingId);
-      } else {
-        newSet.add(listingId);
-      }
-      // Save to localStorage immediately for personalization engine
-      localStorage.setItem("haven_liked_listings", JSON.stringify(Array.from(newSet)));
-      return newSet;
-    });
+    setLikedIds(newSet);
+    localStorage.setItem("haven_liked_listings", JSON.stringify(Array.from(newSet)));
 
     // Sync to database
     const success = isCurrentlyLiked
@@ -136,20 +147,13 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
     if (!success) {
       // Revert on failure
-      setLikedIds(prev => {
-        const newSet = new Set(prev);
-        if (isCurrentlyLiked) {
-          newSet.add(listingId);
-        } else {
-          newSet.delete(listingId);
-        }
-        // Update localStorage with reverted state
-        localStorage.setItem("haven_liked_listings", JSON.stringify(Array.from(newSet)));
-        return newSet;
-      });
+      const revertedSet = new Set(likedIds); // Use the original likedIds
+      setLikedIds(revertedSet);
+      localStorage.setItem("haven_liked_listings", JSON.stringify(Array.from(revertedSet)));
+      // Don't update previousLikedIds since we reverted
     } else {
-      // Update previous ref
-      previousLikedIds.current = new Set(likedIds);
+      // Update previous ref with the successful new set
+      previousLikedIds.current = new Set(newSet);
     }
 
     return success;
