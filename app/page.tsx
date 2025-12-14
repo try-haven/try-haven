@@ -10,14 +10,16 @@ import { useState } from "react";
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoggedIn, isManager } = useUser();
+  const { isLoggedIn, isManager, loading } = useUser();
   const [view, setView] = useState<"marketing" | "onboarding">("marketing");
   const isExplicitHome = searchParams.get("home") === "true";
 
   // Check if user is logged in on initial mount and redirect appropriately
   // But don't redirect if explicitly navigating to home via "Back to Home"
+  // Wait for loading to complete before redirecting to avoid race conditions
   useEffect(() => {
-    if (isLoggedIn && view === "marketing" && !isExplicitHome) {
+    if (!loading && isLoggedIn && view === "marketing" && !isExplicitHome) {
+      console.log('[HomePage] Redirecting logged-in user');
       if (isManager) {
         router.push("/manager/dashboard");
       } else {
@@ -25,7 +27,7 @@ function HomeContent() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, isExplicitHome, isManager]); // Only run when login status or explicit home changes
+  }, [loading, isLoggedIn, isExplicitHome, isManager]); // Only run when login status or explicit home changes
 
   // Marketing landing page
   if (view === "marketing") {
@@ -55,12 +57,9 @@ function HomeContent() {
           router.push("/preferences");
         }}
         onLogIn={() => {
-          // Existing users go to their respective dashboards
-          if (isManager) {
-            router.push("/manager/dashboard");
-          } else {
-            router.push("/swipe");
-          }
+          // Let the useEffect handle the redirect after loading completes
+          // This prevents race conditions with profile loading
+          console.log('[HomePage] Login successful, useEffect will handle redirect');
         }}
         onBack={() => setView("marketing")}
       />
