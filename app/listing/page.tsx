@@ -80,9 +80,11 @@ function ListingContent() {
   }
 
   useEffect(() => {
-    if (!listingId || !listing || typeof window === 'undefined') return;
-
     let cancelled = false;
+
+    if (!listingId || !listing || typeof window === 'undefined') {
+      return () => {}; // Return empty cleanup function
+    }
 
     // Load reviews
     const storedReviews = localStorage.getItem(`haven_listing_reviews_${listingId}`);
