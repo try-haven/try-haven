@@ -28,7 +28,7 @@ function getSupabaseClient() {
       persistSession: true,
       storageKey: 'haven-auth-token',
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      detectSessionInUrl: false, // Disable to prevent navigation issues on static sites
     }
   });
 }
