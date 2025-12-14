@@ -25,13 +25,8 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
   const [justSignedUp, setJustSignedUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // If already logged in when component mounts, proceed to login flow
-  // But NOT if we just signed up (that's handled by the signup button)
-  useEffect(() => {
-    if (isLoggedIn && !justSignedUp) {
-      onLogIn();
-    }
-  }, [isLoggedIn, onLogIn, justSignedUp]);
+  // Redirect is now handled by the home page's useEffect
+  // Removed the auto-login effect to prevent navigation loops
 
   // If already logged in, don't render the form
   if (isLoggedIn) {
