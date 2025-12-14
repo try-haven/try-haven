@@ -15,6 +15,13 @@ function HomeContent() {
   const isExplicitHome = searchParams.get("home") === "true";
   const hasRedirected = useRef(false);
 
+  // Reset redirect ref when user logs out
+  useEffect(() => {
+    if (!isLoggedIn) {
+      hasRedirected.current = false;
+    }
+  }, [isLoggedIn]);
+
   // Check if user is logged in on initial mount and redirect appropriately
   // But don't redirect if explicitly navigating to home via "Back to Home"
   // Wait for loading to complete before redirecting to avoid race conditions

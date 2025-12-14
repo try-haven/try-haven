@@ -299,14 +299,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const logOut = async () => {
-    // Clear user state immediately for instant UI feedback
-    setUser(null);
+    console.log('[UserContext] Starting logout...');
+    // Set loading state to prevent race conditions during logout
+    setLoading(true);
 
-    // Sign out from Supabase in the background
     try {
+      // Sign out from Supabase first
       await supabase.auth.signOut();
+      console.log('[UserContext] Supabase session cleared');
+
+      // Clear user state after session is cleared
+      setUser(null);
+      console.log('[UserContext] User state cleared');
     } catch (error) {
-      console.error("Logout error:", error);
+      console.error("[UserContext] Logout error:", error);
+      // Clear user state even if signOut fails
+      setUser(null);
+    } finally {
+      setLoading(false);
+      console.log('[UserContext] Logout complete');
     }
   };
 

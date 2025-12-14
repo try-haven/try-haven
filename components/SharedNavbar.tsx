@@ -74,10 +74,17 @@ export default function SharedNavbar({
   };
 
   const handleLogOut = async () => {
+    console.log('[SharedNavbar] Starting logout...');
     // Flush any pending liked listings syncs before logging out
     await flushPendingSync();
+    console.log('[SharedNavbar] Pending syncs flushed');
+
+    // Wait for logout to complete before navigating
     await logOut();
-    router.push("/");
+    console.log('[SharedNavbar] Logout complete, navigating to home...');
+
+    // Use replace to avoid back button issues
+    router.replace("/");
   };
 
   const handleLogoClick = () => {
