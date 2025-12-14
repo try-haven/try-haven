@@ -19,7 +19,10 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const loadListings = async () => {
     setIsLoading(true);
     try {
+      console.log('[ListingsContext] Loading listings...');
       const supabaseListings = await getAllListings();
+      console.log('[ListingsContext] Loaded', supabaseListings.length, 'listings');
+
       const convertedListings: ApartmentListing[] = supabaseListings.map(listing => ({
         id: listing.id,
         title: listing.title,
@@ -39,10 +42,12 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       }));
       setListings(convertedListings);
     } catch (error) {
-      console.error("Error loading listings:", error);
+      console.error("[ListingsContext] Error loading listings:", error);
+      // Set empty array on error so the UI doesn't get stuck
       setListings([]);
     } finally {
       setIsLoading(false);
+      console.log('[ListingsContext] Loading complete');
     }
   };
 

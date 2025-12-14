@@ -13,10 +13,24 @@ function getSupabaseClient() {
     // During build, use placeholder values
     return createClient(
       'https://placeholder.supabase.co',
-      'placeholder-anon-key'
+      'placeholder-anon-key',
+      {
+        auth: {
+          persistSession: true,
+          storageKey: 'haven-auth-token',
+        }
+      }
     );
   }
-  return createClient(supabaseUrl, supabaseAnonKey);
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      storageKey: 'haven-auth-token',
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    }
+  });
 }
 
 export const supabase = getSupabaseClient();

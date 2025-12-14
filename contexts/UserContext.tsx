@@ -84,14 +84,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        console.log('[UserContext] Loading session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('[UserContext] Session error:', error);
+          throw error;
+        }
+
         if (session?.user) {
+          console.log('[UserContext] Session found, loading profile...');
           await loadUserProfile(session.user);
+        } else {
+          console.log('[UserContext] No session found');
         }
       } catch (error) {
-        console.error("Error loading session:", error);
+        console.error("[UserContext] Error loading session:", error);
       } finally {
         setLoading(false);
+        console.log('[UserContext] Auth initialization complete');
       }
     };
 
@@ -99,6 +110,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[UserContext] Auth state changed:', event);
       if (session?.user) {
         await loadUserProfile(session.user);
       } else {
