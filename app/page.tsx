@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, Suspense } from "react";
+import { useEffect, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import LandingPage from "@/components/LandingPage";
 import OnboardingLanding from "@/components/OnboardingLanding";
@@ -13,14 +13,17 @@ function HomeContent() {
   const { isLoggedIn, isManager, loading } = useUser();
   const [view, setView] = useState<"marketing" | "onboarding">("marketing");
   const isExplicitHome = searchParams.get("home") === "true";
+  const hasRedirected = useRef(false);
 
   // Check if user is logged in on initial mount and redirect appropriately
   // But don't redirect if explicitly navigating to home via "Back to Home"
   // Wait for loading to complete before redirecting to avoid race conditions
+  // Use ref to prevent multiple redirects
   useEffect(() => {
-    console.log('[HomePage] useEffect check:', { loading, isLoggedIn, isExplicitHome, view });
-    if (!loading && isLoggedIn && !isExplicitHome) {
+    console.log('[HomePage] useEffect check:', { loading, isLoggedIn, isExplicitHome, view, hasRedirected: hasRedirected.current });
+    if (!loading && isLoggedIn && !isExplicitHome && !hasRedirected.current) {
       console.log('[HomePage] Redirecting logged-in user');
+      hasRedirected.current = true;
       if (isManager) {
         router.push("/manager/dashboard");
       } else {
