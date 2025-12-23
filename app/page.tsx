@@ -10,7 +10,7 @@ import { useState } from "react";
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isLoggedIn, isManager, loading } = useUser();
+  const { user, isLoggedIn, isManager, loading } = useUser();
   const [view, setView] = useState<"marketing" | "onboarding">("marketing");
   const isExplicitHome = searchParams.get("home") === "true";
   const hasRedirected = useRef(false);
@@ -22,24 +22,31 @@ function HomeContent() {
     }
   }, [isLoggedIn]);
 
+  // Check if user has set up preferences
+  const hasPreferences = user?.preferences?.address || user?.preferences?.priceMin || user?.preferences?.priceMax;
+
   // Check if user is logged in on initial mount and redirect appropriately
   // But don't redirect if explicitly navigating to home via "Back to Home"
   // Wait for loading to complete before redirecting to avoid race conditions
   // Use ref to prevent multiple redirects
   useEffect(() => {
-    console.log('[HomePage] useEffect check:', { loading, isLoggedIn, isExplicitHome, view, hasRedirected: hasRedirected.current });
+    console.log('[HomePage] useEffect check:', { loading, isLoggedIn, isExplicitHome, view, hasRedirected: hasRedirected.current, hasPreferences });
     if (!loading && isLoggedIn && !isExplicitHome && !hasRedirected.current) {
       console.log('[HomePage] Redirecting logged-in user');
       hasRedirected.current = true;
-      // Use replace instead of push to avoid navigation history issues
-      if (isManager) {
+
+      // For new searchers without preferences, send to preferences page first
+      if (!isManager && !hasPreferences) {
+        console.log('[HomePage] New searcher without preferences, redirecting to /preferences');
+        router.replace("/preferences");
+      } else if (isManager) {
         router.replace("/manager/dashboard");
       } else {
         router.replace("/swipe");
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, isLoggedIn, isExplicitHome, isManager]); // Only run when login status or explicit home changes
+  }, [loading, isLoggedIn, isExplicitHome, isManager, hasPreferences]); // Only run when login status or explicit home changes
 
   // Show loading while user is being authenticated and redirect is pending
   if (isLoggedIn && !isExplicitHome) {

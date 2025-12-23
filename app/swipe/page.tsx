@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import CardStack from "@/components/CardStack";
 import SharedNavbar from "@/components/SharedNavbar";
+import PreferencesReminderPopup from "@/components/PreferencesReminderPopup";
 import { useUser } from "@/contexts/UserContext";
 import { initializeFakeRentalHistory } from "@/lib/data";
 import { useLikedListingsContext } from "@/contexts/LikedListingsContext";
@@ -26,9 +27,26 @@ export default function SwipePage() {
   const [hasPersonalized, setHasPersonalized] = useState(false);
   const [showPersonalizedMessage, setShowPersonalizedMessage] = useState(false);
   const [totalSwipes, setTotalSwipes] = useState(0);
+  const [showPreferencesPopup, setShowPreferencesPopup] = useState(false);
 
   // Wait for ALL contexts to finish loading before rendering to prevent race conditions
   const isLoading = userLoading || isLoadingListings || likedLoading;
+
+  // Check if user has set preferences and show popup if not
+  useEffect(() => {
+    if (!userLoading && user) {
+      const hasPreferences = user.preferences?.address || user.preferences?.priceMin || user.preferences?.priceMax;
+      const neverAskAgain = localStorage.getItem("haven_never_ask_preferences") === "true";
+
+      if (!hasPreferences && !neverAskAgain) {
+        // Show popup after a short delay for better UX
+        const timer = setTimeout(() => {
+          setShowPreferencesPopup(true);
+        }, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, userLoading]);
 
   // Read reviewed listings on mount - can be reset by Start Over
   const [initialReviewedIds, setInitialReviewedIds] = useState(() => {
@@ -316,6 +334,12 @@ export default function SwipePage() {
 
   return (
     <div className="h-screen md:min-h-screen overflow-hidden md:overflow-auto bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Preferences Reminder Popup */}
+      <PreferencesReminderPopup
+        show={showPreferencesPopup}
+        onDismiss={() => setShowPreferencesPopup(false)}
+      />
+
       <div className="container mx-auto px-4 md:px-6 h-full md:h-auto py-4 md:py-8">
         <div className="flex items-center justify-between mb-4 md:mb-8 relative z-50">
           <SharedNavbar
