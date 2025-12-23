@@ -19,7 +19,7 @@ import confetti from "canvas-confetti";
 export default function SwipePage() {
   const router = useRouter();
   const { user, updateLearnedPreferences, loading: userLoading } = useUser();
-  const { likedIds, likedCount, setLikedIds } = useLikedListingsContext();
+  const { likedIds, likedCount, setLikedIds, loading: likedLoading } = useLikedListingsContext();
   const { listings, isLoading: isLoadingListings } = useListings();
   const [hasCompletedAll, setHasCompletedAll] = useState(false);
   const [sessionLearnedPreferences, setSessionLearnedPreferences] = useState<any>(null);
@@ -27,8 +27,8 @@ export default function SwipePage() {
   const [showPersonalizedMessage, setShowPersonalizedMessage] = useState(false);
   const [totalSwipes, setTotalSwipes] = useState(0);
 
-  // Wait for contexts to finish loading before rendering to prevent navigation loops
-  const isLoading = userLoading || isLoadingListings;
+  // Wait for ALL contexts to finish loading before rendering to prevent race conditions
+  const isLoading = userLoading || isLoadingListings || likedLoading;
 
   // Read reviewed listings on mount - can be reset by Start Over
   const [initialReviewedIds, setInitialReviewedIds] = useState(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { geocodeAddress } from "@/lib/geocoding";
@@ -82,9 +82,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const loadedUserIdRef = useRef<string | null>(null); // Track if we've already loaded this user
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const retryCountRef = useRef(0);
 
-  // Safety timeout: force loading to false after 10 seconds to prevent infinite loading
-  const setLoadingWithTimeout = (isLoading: boolean) => {
+  // Safety timeout: force loading to false after 15 seconds to prevent infinite loading
+  const setLoadingWithTimeout = useCallback((isLoading: boolean) => {
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
@@ -97,9 +98,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.warn('[UserContext] Loading timeout reached - forcing loading to false');
         setLoading(false);
         loadingTimeoutRef.current = null;
-      }, 10000); // 10 second timeout
+      }, 15000); // 15 second timeout (increased from 10)
     }
-  };
+  }, []);
 
   // Load user from Supabase on mount
   useEffect(() => {
@@ -173,9 +174,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const loadUserProfile = async (authUser: SupabaseUser) => {
+  const loadUserProfile = async (authUser: SupabaseUser, retryCount = 0): Promise<void> => {
     try {
-      console.log('[UserContext] Loading profile for user:', authUser.id);
+      console.log('[UserContext] Loading profile for user:', authUser.id, retryCount > 0 ? `(retry ${retryCount})` : '');
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -188,6 +189,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (error.code === 'PGRST116') {
           console.log("[UserContext] Profile not found - might be pending email confirmation");
         }
+
+        // Retry on network errors (but not on "not found" errors)
+        if (retryCount < 2 && error.code !== 'PGRST116') {
+          console.log('[UserContext] Retrying profile load...');
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          return loadUserProfile(authUser, retryCount + 1);
+        }
+
         throw error;
       }
 

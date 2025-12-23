@@ -30,7 +30,7 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitializedRef = useRef(false); // Track initial load to handle refresh properly
 
-  // Safety timeout: force loading to false after 8 seconds
+  // Safety timeout: force loading to false after 12 seconds
   const setLoadingWithTimeout = useCallback((isLoading: boolean) => {
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
@@ -44,7 +44,7 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
         console.warn('[LikedListingsContext] Loading timeout reached - forcing loading to false');
         setLoading(false);
         loadingTimeoutRef.current = null;
-      }, 8000); // 8 second timeout
+      }, 12000); // 12 second timeout (increased from 8)
     }
   }, []);
 
@@ -87,7 +87,7 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
   }, [user?.id]);
 
   // Load liked listings from Supabase
-  const loadLikedListings = useCallback(async () => {
+  const loadLikedListings = useCallback(async (retryCount = 0) => {
     const userId = user?.id;
 
     if (!userId) {
@@ -112,7 +112,7 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
     setLoadingWithTimeout(true);
 
     try {
-      console.log('[LikedListingsContext] Loading liked listings for user:', userId);
+      console.log('[LikedListingsContext] Loading liked listings for user:', userId, retryCount > 0 ? `(retry ${retryCount})` : '');
       // Load from database (since we now sync immediately, database should be source of truth)
       const ids = await getLikedListings(userId);
       console.log('[LikedListingsContext] Loaded', ids.length, 'liked listings');
@@ -124,7 +124,16 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("haven_liked_listings", JSON.stringify(ids));
     } catch (error) {
       console.error('[LikedListingsContext] Error loading liked listings:', error);
-      // Set empty set on error so the UI doesn't get stuck
+
+      // Retry up to 2 times on failure
+      if (retryCount < 2) {
+        console.log('[LikedListingsContext] Retrying liked listings load...');
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        return loadLikedListings(retryCount + 1);
+      }
+
+      // After all retries failed, set empty set so UI doesn't get stuck
+      console.error('[LikedListingsContext] All retries failed, setting empty liked listings');
       setLikedIds(new Set());
       previousLikedIds.current = new Set();
       hasInitializedRef.current = true;

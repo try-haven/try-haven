@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { getAllListings, Listing } from "@/lib/listings";
 import { ApartmentListing } from "@/lib/data";
 
@@ -17,8 +17,8 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Safety timeout: force loading to false after 10 seconds
-  const setLoadingWithTimeout = (loading: boolean) => {
+  // Safety timeout: force loading to false after 20 seconds
+  const setLoadingWithTimeout = useCallback((loading: boolean) => {
     if (loadingTimeoutRef.current) {
       clearTimeout(loadingTimeoutRef.current);
       loadingTimeoutRef.current = null;
@@ -31,14 +31,14 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
         console.warn('[ListingsContext] Loading timeout reached - forcing loading to false');
         setIsLoading(false);
         loadingTimeoutRef.current = null;
-      }, 10000); // 10 second timeout
+      }, 20000); // 20 second timeout (listings can be slow to load)
     }
-  };
+  }, []);
 
-  const loadListings = async () => {
+  const loadListings = useCallback(async (retryCount = 0) => {
     setLoadingWithTimeout(true);
     try {
-      console.log('[ListingsContext] Loading listings...');
+      console.log('[ListingsContext] Loading listings...', retryCount > 0 ? `(retry ${retryCount})` : '');
       const supabaseListings = await getAllListings();
       console.log('[ListingsContext] Loaded', supabaseListings.length, 'listings');
 
@@ -62,13 +62,22 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
       setListings(convertedListings);
     } catch (error) {
       console.error("[ListingsContext] Error loading listings:", error);
-      // Set empty array on error so the UI doesn't get stuck
+
+      // Retry up to 2 times on failure
+      if (retryCount < 2) {
+        console.log('[ListingsContext] Retrying listings load...');
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Wait 1.5 seconds
+        return loadListings(retryCount + 1);
+      }
+
+      // After all retries failed, set empty array so UI doesn't get stuck
+      console.error('[ListingsContext] All retries failed, setting empty listings');
       setListings([]);
     } finally {
       setLoadingWithTimeout(false);
       console.log('[ListingsContext] Loading complete');
     }
-  };
+  }, [setLoadingWithTimeout]);
 
   useEffect(() => {
     loadListings();
