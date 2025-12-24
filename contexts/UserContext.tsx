@@ -512,46 +512,69 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePreferences = async (preferences: UserPreferences) => {
-    if (!user) return;
+    if (!user) {
+      console.error('[UserContext] Cannot update preferences: no user');
+      return;
+    }
+
+    console.log('[UserContext] Updating preferences:', preferences);
 
     try {
       // Geocode the address if it's being updated
       let coords = null;
       if (preferences.address) {
+        console.log('[UserContext] Geocoding address:', preferences.address);
         coords = await geocodeAddress(preferences.address);
+        console.log('[UserContext] Geocoded coords:', coords);
       }
+
+      // Prepare update data
+      const updateData = {
+        address: preferences.address,
+        latitude: coords?.latitude || null,
+        longitude: coords?.longitude || null,
+        commute_options: preferences.commute,
+        price_min: preferences.priceMin,
+        price_max: preferences.priceMax,
+        bedrooms: preferences.bedrooms,
+        bathrooms: preferences.bathrooms,
+        rating_min: preferences.ratingMin,
+        rating_max: preferences.ratingMax,
+        weight_distance: preferences.weights?.distance,
+        weight_amenities: preferences.weights?.amenities,
+        weight_quality: preferences.weights?.quality,
+        weight_rating: preferences.weights?.rating,
+      };
+
+      console.log('[UserContext] Updating database with:', updateData);
 
       // Update database
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({
-          address: preferences.address,
-          latitude: coords?.latitude || null,
-          longitude: coords?.longitude || null,
-          commute_options: preferences.commute,
-          price_min: preferences.priceMin,
-          price_max: preferences.priceMax,
-          bedrooms: preferences.bedrooms,
-          bathrooms: preferences.bathrooms,
-          rating_min: preferences.ratingMin,
-          rating_max: preferences.ratingMax,
-          weight_distance: preferences.weights?.distance,
-          weight_amenities: preferences.weights?.amenities,
-          weight_quality: preferences.weights?.quality,
-          weight_rating: preferences.weights?.rating,
-        })
+        .update(updateData)
         .eq('id', user.id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('[UserContext] Database update error:', updateError);
+        throw updateError;
+      }
+
+      console.log('[UserContext] Database updated successfully');
 
       // Fetch updated profile to ensure consistency
+      console.log('[UserContext] Fetching updated profile...');
       const { data: profile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('[UserContext] Profile fetch error:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('[UserContext] Fetched profile:', profile);
 
       // Update local state with confirmed database values
       setUser({
@@ -576,8 +599,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
           learned: user.preferences?.learned, // Keep existing learned preferences
         },
       });
+
+      console.log('[UserContext] Preferences updated successfully');
     } catch (error) {
-      console.error("Error updating preferences:", error);
+      console.error('[UserContext] Error updating preferences:', error);
       throw error; // Re-throw to let caller handle
     }
   };

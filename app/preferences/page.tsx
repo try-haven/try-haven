@@ -95,20 +95,25 @@ function PreferencesContent() {
 
   return (
     <ApartmentPreferences
-      onNext={(apartmentPrefs) => {
-        // Update all preferences in user context
-        updatePreferences({
-          address: userAddress || currentAddress || "",
-          commute: userCommute.length > 0 ? userCommute : currentCommuteOptions || [],
-          priceMin: apartmentPrefs.priceMin,
-          priceMax: apartmentPrefs.priceMax,
-          bedrooms: apartmentPrefs.bedrooms,
-          bathrooms: apartmentPrefs.bathrooms,
-          ratingMin: apartmentPrefs.ratingMin,
-          ratingMax: apartmentPrefs.ratingMax,
-          weights: apartmentPrefs.weights,
-        });
-        router.push("/swipe");
+      onNext={async (apartmentPrefs) => {
+        try {
+          // Update all preferences in user context
+          await updatePreferences({
+            address: userAddress || currentAddress || "",
+            commute: userCommute.length > 0 ? userCommute : currentCommuteOptions || [],
+            priceMin: apartmentPrefs.priceMin,
+            priceMax: apartmentPrefs.priceMax,
+            bedrooms: apartmentPrefs.bedrooms,
+            bathrooms: apartmentPrefs.bathrooms,
+            ratingMin: apartmentPrefs.ratingMin,
+            ratingMax: apartmentPrefs.ratingMax,
+            weights: apartmentPrefs.weights,
+          });
+          router.push("/swipe");
+        } catch (error) {
+          console.error("Failed to update preferences:", error);
+          alert("Failed to save preferences. Please try again.");
+        }
       }}
       onBack={() => setStep("commute")}
       initialPreferences={currentApartmentPreferences}
