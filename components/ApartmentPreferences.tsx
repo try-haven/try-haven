@@ -14,11 +14,10 @@ interface ScoringWeights {
 interface ApartmentPreferencesData {
   priceMin?: number;
   priceMax?: number;
-  bedroomsMin?: number;
-  bedroomsMax?: number;
-  bathroomsMin?: number;
-  bathroomsMax?: number;
-  minRating?: number;
+  bedrooms?: number[];
+  bathrooms?: number[];
+  ratingMin?: number;
+  ratingMax?: number;
   weights?: ScoringWeights;
 }
 
@@ -32,17 +31,16 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
   // State for preferences
   const [priceMin, setPriceMin] = useState<number>(initialPreferences?.priceMin || 500);
   const [priceMax, setPriceMax] = useState<number>(initialPreferences?.priceMax || 5000);
-  const [bedroomsMin, setBedroomsMin] = useState<number | undefined>(initialPreferences?.bedroomsMin);
-  const [bedroomsMax, setBedroomsMax] = useState<number | undefined>(initialPreferences?.bedroomsMax);
-  const [bathroomsMin, setBathroomsMin] = useState<string>(initialPreferences?.bathroomsMin?.toString() || "");
-  const [bathroomsMax, setBathroomsMax] = useState<string>(initialPreferences?.bathroomsMax?.toString() || "");
-  const [minRating, setMinRating] = useState<string>(initialPreferences?.minRating?.toString() || "");
+  const [selectedBedrooms, setSelectedBedrooms] = useState<number[]>(initialPreferences?.bedrooms || []);
+  const [selectedBathrooms, setSelectedBathrooms] = useState<number[]>(initialPreferences?.bathrooms || []);
+  const [ratingMin, setRatingMin] = useState<number>(initialPreferences?.ratingMin || 0);
+  const [ratingMax, setRatingMax] = useState<number>(initialPreferences?.ratingMax || 5);
 
   // State for "no preference" toggles
   const [noPricePreference, setNoPricePreference] = useState(initialPreferences?.priceMin === undefined && initialPreferences?.priceMax === undefined);
-  const [noBedroomsPreference, setNoBedroomsPreference] = useState(initialPreferences?.bedroomsMin === undefined && initialPreferences?.bedroomsMax === undefined);
-  const [noBathroomsPreference, setNoBathroomsPreference] = useState(!initialPreferences?.bathroomsMin && !initialPreferences?.bathroomsMax);
-  const [noRatingPreference, setNoRatingPreference] = useState(!initialPreferences?.minRating);
+  const [noBedroomsPreference, setNoBedroomsPreference] = useState(!initialPreferences?.bedrooms || initialPreferences.bedrooms.length === 0);
+  const [noBathroomsPreference, setNoBathroomsPreference] = useState(!initialPreferences?.bathrooms || initialPreferences.bathrooms.length === 0);
+  const [noRatingPreference, setNoRatingPreference] = useState(initialPreferences?.ratingMin === undefined && initialPreferences?.ratingMax === undefined);
 
   // State for scoring weights
   const [weightDistance, setWeightDistance] = useState<number>(initialPreferences?.weights?.distance ?? 40);
@@ -70,47 +68,32 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
       preferences.priceMax = priceMax;
     }
 
-    // Validate and add bedroom range
+    // Add bedroom selections
     if (!noBedroomsPreference) {
-      if (bedroomsMin !== undefined && bedroomsMax !== undefined && bedroomsMin > bedroomsMax) {
-        setError("Minimum bedrooms cannot be greater than maximum bedrooms");
+      if (selectedBedrooms.length === 0) {
+        setError("Please select at least one bedroom option");
         return;
       }
-
-      preferences.bedroomsMin = bedroomsMin;
-      preferences.bedroomsMax = bedroomsMax;
+      preferences.bedrooms = selectedBedrooms;
     }
 
-    // Validate and add bathroom range
+    // Add bathroom selections
     if (!noBathroomsPreference) {
-      const minBathrooms = bathroomsMin ? parseFloat(bathroomsMin) : undefined;
-      const maxBathrooms = bathroomsMax ? parseFloat(bathroomsMax) : undefined;
-
-      if (minBathrooms !== undefined && (isNaN(minBathrooms) || minBathrooms < 0)) {
-        setError("Please enter a valid minimum number of bathrooms");
+      if (selectedBathrooms.length === 0) {
+        setError("Please select at least one bathroom option");
         return;
       }
-      if (maxBathrooms !== undefined && (isNaN(maxBathrooms) || maxBathrooms < 0)) {
-        setError("Please enter a valid maximum number of bathrooms");
-        return;
-      }
-      if (minBathrooms !== undefined && maxBathrooms !== undefined && minBathrooms > maxBathrooms) {
-        setError("Minimum bathrooms cannot be greater than maximum bathrooms");
-        return;
-      }
-
-      preferences.bathroomsMin = minBathrooms;
-      preferences.bathroomsMax = maxBathrooms;
+      preferences.bathrooms = selectedBathrooms;
     }
 
-    // Validate and add minimum rating
+    // Validate and add rating range
     if (!noRatingPreference) {
-      const ratingNum = minRating ? parseFloat(minRating) : undefined;
-      if (ratingNum !== undefined && (isNaN(ratingNum) || ratingNum < 0 || ratingNum > 5)) {
-        setError("Please enter a valid rating between 0 and 5");
+      if (ratingMin > ratingMax) {
+        setError("Minimum rating cannot be greater than maximum rating");
         return;
       }
-      preferences.minRating = ratingNum;
+      preferences.ratingMin = ratingMin;
+      preferences.ratingMax = ratingMax;
     }
 
     // Validate and add scoring weights (always save, even if using defaults)
@@ -171,35 +154,35 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
               </label>
             </div>
             {!noPricePreference && (
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">Min</label>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">${priceMin.toLocaleString()}</span>
-                  </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">${priceMin.toLocaleString()}</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">${priceMax.toLocaleString()}</span>
+                </div>
+                <div className="relative pt-1">
                   <input
                     type="range"
                     min="0"
                     max="10000"
                     step="100"
                     value={priceMin}
-                    onChange={(e) => setPriceMin(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value <= priceMax) setPriceMin(value);
+                    }}
+                    className="absolute w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-indigo-600 [&::-moz-range-thumb]:border-0"
                   />
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">Max</label>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">${priceMax.toLocaleString()}</span>
-                  </div>
                   <input
                     type="range"
                     min="0"
                     max="10000"
                     step="100"
                     value={priceMax}
-                    onChange={(e) => setPriceMax(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (value >= priceMin) setPriceMax(value);
+                    }}
+                    className="absolute w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-indigo-600 [&::-moz-range-thumb]:border-0"
                   />
                 </div>
               </div>
@@ -219,8 +202,7 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
                   onChange={(e) => {
                     setNoBedroomsPreference(e.target.checked);
                     if (e.target.checked) {
-                      setBedroomsMin(undefined);
-                      setBedroomsMax(undefined);
+                      setSelectedBedrooms([]);
                     }
                   }}
                   className="rounded"
@@ -229,44 +211,31 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
               </label>
             </div>
             {!noBedroomsPreference && (
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-2 block">Min</label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {[0, 1, 2, 3, 4, 5].map((num) => (
-                      <button
-                        key={`min-${num}`}
-                        type="button"
-                        onClick={() => setBedroomsMin(num)}
-                        className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-                          bedroomsMin === num
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        }`}
-                      >
-                        {num === 0 ? "Studio" : num}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-2 block">Max</label>
-                  <div className="grid grid-cols-6 gap-2">
-                    {[0, 1, 2, 3, 4, 5].map((num) => (
-                      <button
-                        key={`max-${num}`}
-                        type="button"
-                        onClick={() => setBedroomsMax(num)}
-                        className={`px-3 py-2 rounded-lg font-medium transition-colors ${
-                          bedroomsMax === num
-                            ? "bg-indigo-600 text-white"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        }`}
-                      >
-                        {num === 0 ? "Studio" : num}
-                      </button>
-                    ))}
-                  </div>
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Select all that apply
+                </p>
+                <div className="grid grid-cols-6 gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((num) => (
+                    <button
+                      key={`bed-${num}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBedrooms(prev =>
+                          prev.includes(num)
+                            ? prev.filter(b => b !== num)
+                            : [...prev, num].sort((a, b) => a - b)
+                        );
+                      }}
+                      className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                        selectedBedrooms.includes(num)
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      {num === 0 ? "Studio" : num}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -285,8 +254,7 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
                   onChange={(e) => {
                     setNoBathroomsPreference(e.target.checked);
                     if (e.target.checked) {
-                      setBathroomsMin("");
-                      setBathroomsMax("");
+                      setSelectedBathrooms([]);
                     }
                   }}
                   className="rounded"
@@ -295,40 +263,41 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
               </label>
             </div>
             {!noBathroomsPreference && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Min</label>
-                  <input
-                    type="number"
-                    value={bathroomsMin}
-                    onChange={(e) => setBathroomsMin(e.target.value)}
-                    placeholder="1"
-                    min="0"
-                    step="0.5"
-                    className={inputStyles.standard}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Max</label>
-                  <input
-                    type="number"
-                    value={bathroomsMax}
-                    onChange={(e) => setBathroomsMax(e.target.value)}
-                    placeholder="2"
-                    min="0"
-                    step="0.5"
-                    className={inputStyles.standard}
-                  />
+              <div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  Select all that apply
+                </p>
+                <div className="grid grid-cols-6 gap-2">
+                  {[1, 1.5, 2, 2.5, 3, 3.5].map((num) => (
+                    <button
+                      key={`bath-${num}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBathrooms(prev =>
+                          prev.includes(num)
+                            ? prev.filter(b => b !== num)
+                            : [...prev, num].sort((a, b) => a - b)
+                        );
+                      }}
+                      className={`px-3 py-2 rounded-lg font-medium transition-colors ${
+                        selectedBathrooms.includes(num)
+                          ? "bg-indigo-600 text-white"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* Minimum Rating */}
+          {/* Rating */}
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
             <div className="flex items-center justify-between mb-3">
               <label className="text-sm font-medium text-gray-900 dark:text-white">
-                Minimum Rating
+                Rating
               </label>
               <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                 <input
@@ -337,7 +306,8 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
                   onChange={(e) => {
                     setNoRatingPreference(e.target.checked);
                     if (e.target.checked) {
-                      setMinRating("");
+                      setRatingMin(0);
+                      setRatingMax(5);
                     }
                   }}
                   className="rounded"
@@ -346,18 +316,37 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
               </label>
             </div>
             {!noRatingPreference && (
-              <div>
-                <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Minimum (0-5 stars)</label>
-                <input
-                  type="number"
-                  value={minRating}
-                  onChange={(e) => setMinRating(e.target.value)}
-                  placeholder="3.5"
-                  min="0"
-                  max="5"
-                  step="0.5"
-                  className={inputStyles.standard}
-                />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{ratingMin.toFixed(1)} ⭐</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{ratingMax.toFixed(1)} ⭐</span>
+                </div>
+                <div className="relative pt-1">
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.5"
+                    value={ratingMin}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (value <= ratingMax) setRatingMin(value);
+                    }}
+                    className="absolute w-full h-2 bg-transparent rounded-lg appearance-none cursor-pointer pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-indigo-600 [&::-moz-range-thumb]:border-0"
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="5"
+                    step="0.5"
+                    value={ratingMax}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (value >= ratingMin) setRatingMax(value);
+                    }}
+                    className="absolute w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-600 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-indigo-600 [&::-moz-range-thumb]:border-0"
+                  />
+                </div>
               </div>
             )}
           </div>

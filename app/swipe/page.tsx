@@ -280,29 +280,27 @@ export default function SwipePage() {
       });
     }
 
-    // Filter by bedroom range if user has set preference
-    if (userPreferences.bedroomsMin !== undefined || userPreferences.bedroomsMax !== undefined) {
+    // Filter by bedroom selections if user has set preference
+    if (userPreferences.bedrooms && userPreferences.bedrooms.length > 0) {
       filteredListings = filteredListings.filter(listing => {
-        const min = userPreferences.bedroomsMin ?? 0;
-        const max = userPreferences.bedroomsMax ?? 999;
-        return listing.bedrooms >= min && listing.bedrooms <= max;
+        return userPreferences.bedrooms!.includes(listing.bedrooms);
       });
     }
 
-    // Filter by bathroom range if user has set preference
-    if (userPreferences.bathroomsMin !== undefined || userPreferences.bathroomsMax !== undefined) {
+    // Filter by bathroom selections if user has set preference
+    if (userPreferences.bathrooms && userPreferences.bathrooms.length > 0) {
       filteredListings = filteredListings.filter(listing => {
-        const min = userPreferences.bathroomsMin ?? 0;
-        const max = userPreferences.bathroomsMax ?? 999;
-        return listing.bathrooms >= min && listing.bathrooms <= max;
+        return userPreferences.bathrooms!.includes(listing.bathrooms);
       });
     }
 
-    // Filter by minimum rating if user has set preference
-    if (userPreferences.minRating) {
+    // Filter by rating range if user has set preference
+    if (userPreferences.ratingMin !== undefined || userPreferences.ratingMax !== undefined) {
       filteredListings = filteredListings.filter(listing => {
-        // Include listings with no rating (new listings) OR ratings >= minRating
-        return !listing.averageRating || listing.averageRating >= userPreferences.minRating!;
+        const min = userPreferences.ratingMin ?? 0;
+        const max = userPreferences.ratingMax ?? 5;
+        // Include listings with no rating (new listings) OR ratings within range
+        return !listing.averageRating || (listing.averageRating >= min && listing.averageRating <= max);
       });
     }
 

@@ -60,11 +60,10 @@ function PreferencesContent() {
   const currentApartmentPreferences = {
     priceMin: user?.preferences?.priceMin,
     priceMax: user?.preferences?.priceMax,
-    bedroomsMin: user?.preferences?.bedroomsMin,
-    bedroomsMax: user?.preferences?.bedroomsMax,
-    bathroomsMin: user?.preferences?.bathroomsMin,
-    bathroomsMax: user?.preferences?.bathroomsMax,
-    minRating: user?.preferences?.minRating,
+    bedrooms: user?.preferences?.bedrooms,
+    bathrooms: user?.preferences?.bathrooms,
+    ratingMin: user?.preferences?.ratingMin,
+    ratingMax: user?.preferences?.ratingMax,
     weights: user?.preferences?.weights,
   };
 
@@ -103,11 +102,10 @@ function PreferencesContent() {
           commute: userCommute.length > 0 ? userCommute : currentCommuteOptions || [],
           priceMin: apartmentPrefs.priceMin,
           priceMax: apartmentPrefs.priceMax,
-          bedroomsMin: apartmentPrefs.bedroomsMin,
-          bedroomsMax: apartmentPrefs.bedroomsMax,
-          bathroomsMin: apartmentPrefs.bathroomsMin,
-          bathroomsMax: apartmentPrefs.bathroomsMax,
-          minRating: apartmentPrefs.minRating,
+          bedrooms: apartmentPrefs.bedrooms,
+          bathrooms: apartmentPrefs.bathrooms,
+          ratingMin: apartmentPrefs.ratingMin,
+          ratingMax: apartmentPrefs.ratingMax,
           weights: apartmentPrefs.weights,
         });
         router.push("/swipe");

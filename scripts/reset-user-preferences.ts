@@ -46,24 +46,20 @@ async function resetUserPreferences() {
         latitude: null,
         longitude: null,
         commute_options: null,
-        // Rating preferences
-        min_rating: null,
         // Price preferences
         price_min: null,
         price_max: null,
-        // Bedroom/bathroom ranges
-        bedrooms_min: null,
-        bedrooms_max: null,
-        bathrooms_min: null,
-        bathrooms_max: null,
+        // Bedroom/bathroom selections (arrays)
+        bedrooms: null,
+        bathrooms: null,
+        // Rating range
+        rating_min: null,
+        rating_max: null,
         // Scoring weights (reset to defaults)
         weight_distance: 40,
         weight_amenities: 35,
         weight_quality: 15,
         weight_rating: 10,
-        // Legacy single-value fields (if they exist)
-        bedrooms: null,
-        bathrooms: null,
         // Learned personalization (automatically calculated from swipes)
         learned_preferred_amenities: {},
         learned_avg_image_count: null,

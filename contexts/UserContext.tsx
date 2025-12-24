@@ -28,14 +28,13 @@ interface UserPreferences {
   latitude?: number;
   longitude?: number;
   commute?: CommuteOption[];
-  minRating?: number;
   // Apartment preferences (optional - if not set, use learned values)
   priceMin?: number;
   priceMax?: number;
-  bedroomsMin?: number;
-  bedroomsMax?: number;
-  bathroomsMin?: number;
-  bathroomsMax?: number;
+  bedrooms?: number[];
+  bathrooms?: number[];
+  ratingMin?: number;
+  ratingMax?: number;
   // Scoring weights (customizable - defaults to 40/35/15/10)
   weights?: ScoringWeights;
   // Learned preferences (automatically calculated from swipe behavior)
@@ -237,13 +236,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
             latitude: profile.latitude,
             longitude: profile.longitude,
             commute: profile.commute_options as CommuteOption[],
-            minRating: profile.min_rating,
             priceMin: profile.price_min,
             priceMax: profile.price_max,
-            bedroomsMin: profile.bedrooms_min,
-            bedroomsMax: profile.bedrooms_max,
-            bathroomsMin: profile.bathrooms_min,
-            bathroomsMax: profile.bathrooms_max,
+            bedrooms: profile.bedrooms,
+            bathrooms: profile.bathrooms,
+            ratingMin: profile.rating_min,
+            ratingMax: profile.rating_max,
             weights: {
               distance: profile.weight_distance ?? 40,
               amenities: profile.weight_amenities ?? 35,
@@ -530,13 +528,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
           latitude: coords?.latitude || null,
           longitude: coords?.longitude || null,
           commute_options: preferences.commute,
-          min_rating: preferences.minRating,
           price_min: preferences.priceMin,
           price_max: preferences.priceMax,
-          bedrooms_min: preferences.bedroomsMin,
-          bedrooms_max: preferences.bedroomsMax,
-          bathrooms_min: preferences.bathroomsMin,
-          bathrooms_max: preferences.bathroomsMax,
+          bedrooms: preferences.bedrooms,
+          bathrooms: preferences.bathrooms,
+          rating_min: preferences.ratingMin,
+          rating_max: preferences.ratingMax,
           weight_distance: preferences.weights?.distance,
           weight_amenities: preferences.weights?.amenities,
           weight_quality: preferences.weights?.quality,

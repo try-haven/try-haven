@@ -30,11 +30,10 @@ interface UserPreferences {
   commute?: string[];
   priceMin?: number;
   priceMax?: number;
-  bedroomsMin?: number;
-  bedroomsMax?: number;
-  bathroomsMin?: number;
-  bathroomsMax?: number;
-  minRating?: number; // Minimum average rating (0-5 scale)
+  bedrooms?: number[];
+  bathrooms?: number[];
+  ratingMin?: number;
+  ratingMax?: number;
   weights?: ScoringWeights; // Custom scoring weights (defaults to 40/35/15/10)
   learned?: LearnedPreferences; // Learned preferences from swipe behavior
 }
