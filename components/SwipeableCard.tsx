@@ -63,6 +63,7 @@ export default function SwipeableCard({
     newValue: number;
   } | null>(null);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
+  const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
 
   // Load reviews from localStorage after mount (client-side only)
   useEffect(() => {
@@ -159,6 +160,11 @@ export default function SwipeableCard({
   useEffect(() => {
     setImageError(false);
   }, [imageIndex]);
+
+  // Close score breakdown when card changes or user navigates away
+  useEffect(() => {
+    setShowScoreBreakdown(false);
+  }, [index, imageIndex]);
 
   // Geocode address when card becomes visible (index === 0)
   useEffect(() => {
@@ -335,7 +341,14 @@ export default function SwipeableCard({
 
             {/* Match Score Badge */}
             {matchScore !== undefined && (
-              <div className="absolute top-4 left-4 z-20 group">
+              <div
+                className="absolute top-4 left-4 z-20 group cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowScoreBreakdown(!showScoreBreakdown);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
                 {/* Pulsing hint ring - bright and visible on all backgrounds */}
                 <div className="absolute -inset-1 rounded-full bg-indigo-500/60 dark:bg-indigo-400/70 animate-ping pointer-events-none" style={{ animationDuration: '2.5s' }}></div>
                 <div className="absolute -inset-0.5 rounded-full bg-white/40 dark:bg-white/30 animate-ping pointer-events-none" style={{ animationDuration: '2.5s', animationDelay: '0.3s' }}></div>
@@ -370,7 +383,7 @@ export default function SwipeableCard({
 
                 {/* Score Breakdown Tooltip */}
                 {scoreBreakdown && (
-                  <div className="invisible group-hover:visible absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 z-10">
+                  <div className={`${showScoreBreakdown ? 'visible' : 'invisible group-hover:visible'} absolute top-full left-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-3 z-10`}>
                     <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Score Breakdown:</div>
                     <div className="space-y-1.5">
                       {scoreBreakdown.distance && (
