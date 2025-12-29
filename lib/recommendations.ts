@@ -5,6 +5,7 @@ import { predictSwipeLikelihood, isModelValid, ModelWeights } from "./ml-model";
 interface ScoringWeights {
   distance: number;   // 0-100 percentage
   amenities: number;  // 0-100 percentage
+  propertyFeatures: number;  // 0-100 percentage
   quality: number;    // 0-100 percentage
   rating: number;     // 0-100 percentage
 }
@@ -47,6 +48,7 @@ interface UserPreferences {
 export interface ScoreBreakdown {
   distance?: { score: number; percentage: number; label: string }; // e.g., "15 mi" or "Nearby"
   amenities?: { score: number; percentage: number; label: string }; // e.g., "Great match" or "Pool, Gym"
+  propertyFeatures?: { score: number; percentage: number; label: string }; // e.g., "850 sqft, Built 2015"
   quality?: { score: number; percentage: number; label: string };   // e.g., "High quality" or "6 photos"
   rating?: { score: number; percentage: number; label: string };    // e.g., "4.2★" or "No reviews"
 }
@@ -98,6 +100,55 @@ export function extractAmenities(listing: ApartmentListing | NYCApartmentListing
 
   // Old format - amenities is already an array
   return (listing as ApartmentListing).amenities || [];
+}
+
+/**
+ * Score square footage with bonus for ideal range (800-1200 sqft)
+ */
+function scoreSqft(sqft: number): number {
+  const minSqft = 300;
+  const maxSqft = 2500;
+  const normalized = Math.max(0, Math.min(1, (sqft - minSqft) / (maxSqft - minSqft)));
+
+  // Bonus for ideal range (800-1200 sqft)
+  if (sqft >= 800 && sqft <= 1200) {
+    return Math.min(1.0, normalized + 0.2);
+  }
+
+  return normalized;
+}
+
+/**
+ * Score building age with U-curve (modern + historic better than mid-century)
+ */
+function scoreBuildingAge(yearBuilt: number): number {
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - yearBuilt;
+
+  if (age <= 10) return 1.0 - (age / 100);
+  if (age <= 20) return 0.9 - ((age - 10) / 100);
+  if (age <= 80) return 0.5 + ((80 - age) / 200);
+  if (age >= 100) return 0.8; // Historic bonus
+  return 0.6 + ((100 - age) / 200);
+}
+
+/**
+ * Score renovation with high value for recent, penalty for null on old buildings
+ */
+function scoreRenovation(renovationYear: number | null, yearBuilt: number): number {
+  if (!renovationYear) {
+    const currentYear = new Date().getFullYear();
+    const buildingAge = currentYear - yearBuilt;
+    return buildingAge <= 10 ? 0.7 : 0.4; // Newer buildings OK without renovation
+  }
+
+  const currentYear = new Date().getFullYear();
+  const renovationAge = currentYear - renovationYear;
+
+  if (renovationAge <= 5) return 1.0;
+  if (renovationAge <= 10) return 0.9 - ((renovationAge - 5) / 50);
+  if (renovationAge <= 20) return 0.8 - ((renovationAge - 10) / 50);
+  return Math.max(0.3, 0.5 - ((renovationAge - 20) / 100));
 }
 
 /**
@@ -202,10 +253,11 @@ function calculateMatchScore(
 
   // Extract custom weights (or use defaults)
   const weights = preferences.weights || {
-    distance: 40,
-    amenities: 35,
+    distance: 30,
+    amenities: 30,
+    propertyFeatures: 20,
     quality: 15,
-    rating: 10
+    rating: 5
   };
 
   // Helper to add score component
@@ -354,7 +406,40 @@ function calculateMatchScore(
     label: qualityLabel
   };
 
-  // Rating match (weight: 10)
+  // Property Features match (sqft, building age, renovation)
+  // Scores physical characteristics of the property
+  if ('sqft' in listing && 'yearBuilt' in listing) {
+    const nycListing = listing as NYCApartmentListing;
+
+    const sqftScore = scoreSqft(nycListing.sqft);
+    const buildingAgeScore = scoreBuildingAge(nycListing.yearBuilt);
+    const renovationScore = scoreRenovation(nycListing.renovationYear, nycListing.yearBuilt);
+
+    // Weighted: sqft 40%, building age 30%, renovation 30%
+    const propertyScore = (sqftScore * 0.4) + (buildingAgeScore * 0.3) + (renovationScore * 0.3);
+    const propertyPoints = weights.propertyFeatures * propertyScore;
+    addScore(weights.propertyFeatures, propertyScore);
+
+    const sqftLabel = `${nycListing.sqft.toLocaleString()} sqft`;
+    const ageLabel = `Built ${nycListing.yearBuilt}`;
+    const renovLabel = nycListing.renovationYear ? `, Reno ${nycListing.renovationYear}` : '';
+
+    breakdown.propertyFeatures = {
+      score: propertyPoints,
+      percentage: propertyScore * 100,
+      label: `${sqftLabel}, ${ageLabel}${renovLabel}`
+    };
+  } else {
+    // Not a NYC listing or missing data
+    addScore(weights.propertyFeatures, 0.5);
+    breakdown.propertyFeatures = {
+      score: weights.propertyFeatures * 0.5,
+      percentage: 50,
+      label: 'Data unavailable'
+    };
+  }
+
+  // Rating match (weight: 5)
   // Use average rating from reviews (0-5 scale)
   if (listing.averageRating !== undefined && listing.totalRatings && listing.totalRatings > 0) {
     // Rating is 0-5 scale, normalize to 0-1

@@ -221,7 +221,8 @@ export function isModelValid(modelWeights: ModelWeights | null | undefined): boo
  * Feature mapping to scoring categories:
  * - Distance (weight index 17): Distance score
  * - Amenities (indices 6-16): 11 amenity-related features
- * - Quality (indices 0-5): Price, bedrooms, bathrooms, sqft, building age, renovation
+ * - Property Features (indices 3-5): Sqft, building age, renovation
+ * - Quality (indices 0-2): Price, bedrooms, bathrooms (for photos/description)
  * - Rating: Inferred from overall model confidence
  *
  * @param modelWeights Trained model weights
@@ -230,9 +231,10 @@ export function isModelValid(modelWeights: ModelWeights | null | undefined): boo
 export function suggestScoringWeights(modelWeights: ModelWeights): {
   distance: number;
   amenities: number;
+  propertyFeatures: number;
   quality: number;
   rating: number;
-  topPriority: 'distance' | 'amenities' | 'quality' | 'rating';
+  topPriority: 'distance' | 'amenities' | 'propertyFeatures' | 'quality' | 'rating';
   confidence: number;
 } {
   // Extract absolute feature importances
@@ -243,20 +245,23 @@ export function suggestScoringWeights(modelWeights: ModelWeights): {
   const distanceImportance = weights[17] || 0; // Distance feature (1 feature)
   const amenityWeights = weights.slice(6, 17); // 11 amenity features
   const amenitiesImportance = amenityWeights.reduce((sum, w) => sum + w, 0) / amenityWeights.length; // Average of 11 features
-  const qualityWeights = weights.slice(0, 6); // 6 quality features
-  const qualityImportance = qualityWeights.reduce((sum, w) => sum + w, 0) / qualityWeights.length; // Average of 6 features
+  const qualityWeights = weights.slice(0, 3); // 3 quality features (price, bedrooms, bathrooms)
+  const qualityImportance = qualityWeights.reduce((sum, w) => sum + w, 0) / qualityWeights.length; // Average of 3 features
+  const propertyWeights = weights.slice(3, 6); // 3 property features (sqft, building age, renovation age)
+  const propertyFeaturesImportance = propertyWeights.reduce((sum, w) => sum + w, 0) / propertyWeights.length; // Average of 3 features
 
   // Rating importance is harder to extract since it's not a direct feature
   // Use a baseline that can be adjusted
   const ratingImportance = Math.max(...weights) * 0.3; // 30% of max feature importance
 
   // Calculate total importance
-  const totalImportance = distanceImportance + amenitiesImportance + qualityImportance + ratingImportance;
+  const totalImportance = distanceImportance + amenitiesImportance + propertyFeaturesImportance + qualityImportance + ratingImportance;
 
   // Normalize to percentages (0-100)
   const rawWeights = {
     distance: (distanceImportance / totalImportance) * 100,
     amenities: (amenitiesImportance / totalImportance) * 100,
+    propertyFeatures: (propertyFeaturesImportance / totalImportance) * 100,
     quality: (qualityImportance / totalImportance) * 100,
     rating: (ratingImportance / totalImportance) * 100,
   };
@@ -264,17 +269,19 @@ export function suggestScoringWeights(modelWeights: ModelWeights): {
   // Round to nearest 5% and ensure sum is 100
   let distance = Math.round(rawWeights.distance / 5) * 5;
   let amenities = Math.round(rawWeights.amenities / 5) * 5;
+  let propertyFeatures = Math.round(rawWeights.propertyFeatures / 5) * 5;
   let quality = Math.round(rawWeights.quality / 5) * 5;
   let rating = Math.round(rawWeights.rating / 5) * 5;
 
   // Adjust to ensure sum is exactly 100
-  const sum = distance + amenities + quality + rating;
+  const sum = distance + amenities + propertyFeatures + quality + rating;
   const diff = 100 - sum;
 
   // Add difference to the largest category
   const categories = [
     { name: 'distance' as const, value: distance },
     { name: 'amenities' as const, value: amenities },
+    { name: 'propertyFeatures' as const, value: propertyFeatures },
     { name: 'quality' as const, value: quality },
     { name: 'rating' as const, value: rating },
   ];
@@ -282,19 +289,20 @@ export function suggestScoringWeights(modelWeights: ModelWeights): {
 
   if (largest.name === 'distance') distance += diff;
   else if (largest.name === 'amenities') amenities += diff;
+  else if (largest.name === 'propertyFeatures') propertyFeatures += diff;
   else if (largest.name === 'quality') quality += diff;
   else rating += diff;
 
   // Determine top priority (highest weight)
-  const finalWeights = { distance, amenities, quality, rating };
+  const finalWeights = { distance, amenities, propertyFeatures, quality, rating };
 
   // Find the maximum weight value
-  const maxWeight = Math.max(distance, amenities, quality, rating);
+  const maxWeight = Math.max(distance, amenities, propertyFeatures, quality, rating);
 
   // Find all priorities with the max weight (handle ties)
   const topPriorities = Object.entries(finalWeights)
     .filter(([, value]) => value === maxWeight)
-    .map(([key]) => key as 'distance' | 'amenities' | 'quality' | 'rating');
+    .map(([key]) => key as 'distance' | 'amenities' | 'propertyFeatures' | 'quality' | 'rating');
 
   // Use the first one for single top priority, or prefer amenities in ties (most specific)
   const topPriority = topPriorities.length === 1
@@ -317,6 +325,7 @@ export function suggestScoringWeights(modelWeights: ModelWeights): {
   return {
     distance,
     amenities,
+    propertyFeatures,
     quality,
     rating,
     topPriority,

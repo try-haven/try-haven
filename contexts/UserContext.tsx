@@ -19,6 +19,7 @@ interface LearnedPreferences {
 export interface ScoringWeights {
   distance: number;   // 0-100 percentage
   amenities: number;  // 0-100 percentage
+  propertyFeatures: number;  // 0-100 percentage
   quality: number;    // 0-100 percentage
   rating: number;     // 0-100 percentage
 }
@@ -250,10 +251,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
             requiredView: profile.required_view,
             requiredNeighborhoods: profile.required_neighborhoods,
             weights: {
-              distance: profile.weight_distance ?? 40,
-              amenities: profile.weight_amenities ?? 35,
+              distance: profile.weight_distance ?? 30,
+              amenities: profile.weight_amenities ?? 30,
+              propertyFeatures: profile.weight_property_features ?? 20,
               quality: profile.weight_quality ?? 15,
-              rating: profile.weight_rating ?? 10,
+              rating: profile.weight_rating ?? 5,
             },
             weightsLocked: profile.weights_locked ?? false,
             learned: {
@@ -553,6 +555,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         required_neighborhoods: preferences.requiredNeighborhoods || null,
         weight_distance: preferences.weights?.distance ?? null,
         weight_amenities: preferences.weights?.amenities ?? null,
+        weight_property_features: preferences.weights?.propertyFeatures ?? null,
         weight_quality: preferences.weights?.quality ?? null,
         weight_rating: preferences.weights?.rating ?? null,
       };
@@ -610,10 +613,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
           requiredView: profile.required_view,
           requiredNeighborhoods: profile.required_neighborhoods,
           weights: {
-            distance: profile.weight_distance ?? 40,
-            amenities: profile.weight_amenities ?? 35,
+            distance: profile.weight_distance ?? 30,
+            amenities: profile.weight_amenities ?? 30,
+            propertyFeatures: profile.weight_property_features ?? 20,
             quality: profile.weight_quality ?? 15,
-            rating: profile.weight_rating ?? 10,
+            rating: profile.weight_rating ?? 5,
           },
           learned: user.preferences?.learned, // Keep existing learned preferences
         },

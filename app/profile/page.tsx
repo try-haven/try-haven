@@ -18,10 +18,11 @@ export default function ProfilePage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Weight customization state
-  const [weightDistance, setWeightDistance] = useState<number>(40);
-  const [weightAmenities, setWeightAmenities] = useState<number>(35);
+  const [weightDistance, setWeightDistance] = useState<number>(30);
+  const [weightAmenities, setWeightAmenities] = useState<number>(30);
+  const [weightPropertyFeatures, setWeightPropertyFeatures] = useState<number>(20);
   const [weightQuality, setWeightQuality] = useState<number>(15);
-  const [weightRating, setWeightRating] = useState<number>(10);
+  const [weightRating, setWeightRating] = useState<number>(5);
   const [weightsLocked, setWeightsLocked] = useState<boolean>(user?.preferences?.weightsLocked ?? false);
   const [isSavingWeights, setIsSavingWeights] = useState(false);
   const [weightsSaveSuccess, setWeightsSaveSuccess] = useState(false);
@@ -35,6 +36,7 @@ export default function ProfilePage() {
     if (user.preferences?.weights) {
       setWeightDistance(user.preferences.weights.distance);
       setWeightAmenities(user.preferences.weights.amenities);
+      setWeightPropertyFeatures(user.preferences.weights.propertyFeatures ?? 20);
       setWeightQuality(user.preferences.weights.quality);
       setWeightRating(user.preferences.weights.rating);
     }
@@ -45,18 +47,20 @@ export default function ProfilePage() {
   }, [user]);
 
   const handleEqualSplit = () => {
-    setWeightDistance(25);
-    setWeightAmenities(25);
-    setWeightQuality(25);
-    setWeightRating(25);
+    setWeightDistance(20);
+    setWeightAmenities(20);
+    setWeightPropertyFeatures(20);
+    setWeightQuality(20);
+    setWeightRating(20);
     setWeightsError(null);
   };
 
   const handleResetToDefaults = () => {
-    setWeightDistance(40);
-    setWeightAmenities(35);
+    setWeightDistance(30);
+    setWeightAmenities(30);
+    setWeightPropertyFeatures(20);
     setWeightQuality(15);
-    setWeightRating(10);
+    setWeightRating(5);
     setWeightsError(null);
   };
 
@@ -65,7 +69,7 @@ export default function ProfilePage() {
     setWeightsSaveSuccess(false);
 
     // Validate that weights sum to 100
-    const totalWeight = weightDistance + weightAmenities + weightQuality + weightRating;
+    const totalWeight = weightDistance + weightAmenities + weightPropertyFeatures + weightQuality + weightRating;
     if (totalWeight !== 100) {
       setWeightsError(`Weights must sum to 100% (currently ${totalWeight}%)`);
       return;
@@ -78,6 +82,7 @@ export default function ProfilePage() {
         weights: {
           distance: weightDistance,
           amenities: weightAmenities,
+          propertyFeatures: weightPropertyFeatures,
           quality: weightQuality,
           rating: weightRating,
         },
@@ -301,6 +306,25 @@ export default function ProfilePage() {
                   />
                 </div>
 
+                {/* Property Features Weight */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`${textStyles.bodySmall} text-gray-600 dark:text-gray-400`}>
+                      🏗️ Property features (sqft, age, renovation)
+                    </label>
+                    <span className={`${textStyles.body} font-medium`}>{weightPropertyFeatures}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={weightPropertyFeatures}
+                    onChange={(e) => setWeightPropertyFeatures(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                  />
+                </div>
+
                 {/* Quality Weight */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
@@ -346,7 +370,7 @@ export default function ProfilePage() {
                     type="button"
                     className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
                   >
-                    Equal Split (25% each)
+                    Equal Split (20% each)
                   </button>
                   <button
                     onClick={handleResetToDefaults}
@@ -359,13 +383,13 @@ export default function ProfilePage() {
 
                 {/* Total Display */}
                 <div className={`flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700 ${
-                  weightDistance + weightAmenities + weightQuality + weightRating === 100
+                  weightDistance + weightAmenities + weightPropertyFeatures + weightQuality + weightRating === 100
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
                   <span className={`${textStyles.body} font-medium`}>Total:</span>
                   <span className={`${textStyles.body} font-bold`}>
-                    {weightDistance + weightAmenities + weightQuality + weightRating}%
+                    {weightDistance + weightAmenities + weightPropertyFeatures + weightQuality + weightRating}%
                   </span>
                 </div>
               </div>
@@ -390,7 +414,7 @@ export default function ProfilePage() {
               {/* Save Button */}
               <button
                 onClick={handleSaveWeights}
-                disabled={isSavingWeights || weightDistance + weightAmenities + weightQuality + weightRating !== 100}
+                disabled={isSavingWeights || weightDistance + weightAmenities + weightPropertyFeatures + weightQuality + weightRating !== 100}
                 className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSavingWeights ? "Saving..." : "Save Weights"}

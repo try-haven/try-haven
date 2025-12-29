@@ -402,6 +402,7 @@ export default function SwipeableCard({
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.distance.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -413,6 +414,7 @@ export default function SwipeableCard({
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.amenities.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -420,10 +422,23 @@ export default function SwipeableCard({
                           <span>{Math.round(scoreBreakdown.amenities.score)}pts</span>
                         </div>
                       )}
+                      {scoreBreakdown.propertyFeatures && (
+                        <div className={`flex items-center justify-between text-xs ${scoreBreakdown.propertyFeatures.score === Math.max(
+                          scoreBreakdown.distance?.score || 0,
+                          scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
+                          scoreBreakdown.quality?.score || 0,
+                          scoreBreakdown.rating?.score || 0
+                        ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                          <span>🏗️ Features: {scoreBreakdown.propertyFeatures.label}</span>
+                          <span>{Math.round(scoreBreakdown.propertyFeatures.score)}pts</span>
+                        </div>
+                      )}
                       {scoreBreakdown.quality && (
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.quality.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -435,6 +450,7 @@ export default function SwipeableCard({
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.rating.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>

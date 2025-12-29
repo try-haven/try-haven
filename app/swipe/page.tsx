@@ -151,6 +151,7 @@ export default function SwipePage() {
           weights: {
             distance: suggestion.distance,
             amenities: suggestion.amenities,
+            propertyFeatures: suggestion.propertyFeatures,
             quality: suggestion.quality,
             rating: suggestion.rating,
           },
@@ -196,10 +197,11 @@ export default function SwipePage() {
         }
 
         // Check if there's a tie (multiple priorities with same weight)
-        const maxWeight = Math.max(suggestion.distance, suggestion.amenities, suggestion.quality, suggestion.rating);
+        const maxWeight = Math.max(suggestion.distance, suggestion.amenities, suggestion.propertyFeatures, suggestion.quality, suggestion.rating);
         const allPriorities: Array<{ name: string; weight: number }> = [
           { name: 'distance', weight: suggestion.distance },
           { name: 'amenities', weight: suggestion.amenities },
+          { name: 'propertyFeatures', weight: suggestion.propertyFeatures },
           { name: 'quality', weight: suggestion.quality },
           { name: 'rating', weight: suggestion.rating },
         ];
