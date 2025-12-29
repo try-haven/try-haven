@@ -87,7 +87,8 @@ export default function ManagerDashboard() {
   };
 
   const handleShareListing = async (listingId: string) => {
-    const url = `${window.location.origin}/haven/listing?id=${listingId}`;
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const url = `${window.location.origin}${basePath}/listing?id=${listingId}`;
     try {
       if (navigator.share) {
         await navigator.share({

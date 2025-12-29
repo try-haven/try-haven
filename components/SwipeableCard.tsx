@@ -229,7 +229,8 @@ export default function SwipeableCard({
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/haven/listing?id=${listing.id}`;
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const url = `${window.location.origin}${basePath}/listing?id=${listing.id}`;
 
     if (user) {
       // Track share in metrics
