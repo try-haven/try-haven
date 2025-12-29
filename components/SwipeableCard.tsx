@@ -25,6 +25,7 @@ interface SwipeableCardProps {
   scoreBreakdown?: {
     distance?: { score: number; percentage: number; label: string };
     amenities?: { score: number; percentage: number; label: string };
+    propertyFeatures?: { score: number; percentage: number; label: string };
     quality?: { score: number; percentage: number; label: string };
     rating?: { score: number; percentage: number; label: string };
   };
