@@ -14,12 +14,14 @@ import {
   getSwipeHistory,
   shouldUpdateLearnedPreferences,
   calculateLearnedPreferences,
+  extractAmenities,
 } from "@/lib/recommendations";
+import { trainModel, isModelValid, suggestScoringWeights } from "@/lib/ml-model";
 import confetti from "canvas-confetti";
 
 export default function SwipePage() {
   const router = useRouter();
-  const { user, updateLearnedPreferences, loading: userLoading } = useUser();
+  const { user, updateLearnedPreferences, updatePreferences, loading: userLoading } = useUser();
   const { likedIds, likedCount, setLikedIds, loading: likedLoading } = useLikedListingsContext();
   const { listings, isLoading: isLoadingListings } = useListings();
   const [hasCompletedAll, setHasCompletedAll] = useState(false);
@@ -28,6 +30,14 @@ export default function SwipePage() {
   const [showPersonalizedMessage, setShowPersonalizedMessage] = useState(false);
   const [totalSwipes, setTotalSwipes] = useState(0);
   const [showPreferencesPopup, setShowPreferencesPopup] = useState(false);
+  const [isTrainingML, setIsTrainingML] = useState(false);
+  const [mlTrainingMessage, setMlTrainingMessage] = useState<string | null>(null);
+  const [mlInsight, setMlInsight] = useState<{
+    topPriority: string;
+    confidence: number;
+    amenityDetails?: string;
+    tiedWith?: string[];
+  } | null>(null);
 
   // Wait for ALL contexts to finish loading before rendering to prevent race conditions
   const isLoading = userLoading || isLoadingListings || likedLoading;
@@ -77,31 +87,157 @@ export default function SwipePage() {
     const swipeHistory = getSwipeHistory();
     setTotalSwipes(swipeHistory.length);
 
-    // Check for personalization trigger on EVERY swipe (not just when likes change)
-    if (!hasPersonalized && !hasLearnedPreferences && user && listings.length > 0) {
-      const currentSwipeCount = swipeHistory.length;
+    // NEW: Trigger ML training at milestones (10, 20, 30, ...)
+    // Skip if user has manually locked their weights
+    const currentSwipeCount = swipeHistory.length;
+    const shouldTrainML =
+      currentSwipeCount >= 10 &&
+      currentSwipeCount % 10 === 0 && // Every 10 swipes
+      !isTrainingML && // Not already training
+      !user?.preferences?.weightsLocked && // Not locked by user
+      user &&
+      listings.length > 0;
 
-      // After 5 swipes, apply personalization immediately
-      if (currentSwipeCount === 5) {
-        const newLearnedPreferences = calculateLearnedPreferences(listings, swipeHistory);
-        setSessionLearnedPreferences(newLearnedPreferences);
-        setHasPersonalized(true);
+    if (shouldTrainML) {
+      trainMLModel(swipeHistory);
+    }
+  };
 
-        // Save to database immediately
-        updateLearnedPreferences(newLearnedPreferences);
+  // ML training function
+  const trainMLModel = async (swipeHistory: Array<{ listingId: string; liked: boolean }>) => {
+    setIsTrainingML(true);
+    console.log('[Swipe] Starting ML training with', swipeHistory.length, 'examples');
 
-        // Show success message briefly
-        setShowPersonalizedMessage(true);
-        setTimeout(() => setShowPersonalizedMessage(false), 4000);
+    try {
+      const userLocation = user?.preferences?.latitude && user?.preferences?.longitude
+        ? { latitude: user.preferences.latitude, longitude: user.preferences.longitude }
+        : undefined;
 
-        // Trigger confetti celebration! 🎉
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#6366f1', '#8b5cf6', '#ec4899', '#10b981'],
+      const result = await trainModel(listings, swipeHistory, userLocation);
+
+      if (result.success && result.weights) {
+        console.log('[Swipe] ML training successful. Accuracy:', result.accuracy?.toFixed(3));
+
+        // Calculate learned preferences (amenities, image count, description length)
+        const learnedPrefs = calculateLearnedPreferences(listings, swipeHistory);
+
+        // Save learned preferences to database
+        const updatedLearned = {
+          ...learnedPrefs,
+          updatedAt: new Date().toISOString(),
+        };
+
+        await updateLearnedPreferences(updatedLearned);
+
+        // Calculate weight suggestions from the trained model
+        const suggestion = suggestScoringWeights(result.weights);
+
+        // Save the suggested weights (this won't run if weights are locked due to check above)
+        // Only update weights, preserve everything else
+        // IMPORTANT: Don't include weightsLocked at all - only user can change that in profile page
+        const currentPrefs = user?.preferences || {};
+        await updatePreferences({
+          address: currentPrefs.address,
+          latitude: currentPrefs.latitude,
+          longitude: currentPrefs.longitude,
+          commute: currentPrefs.commute,
+          priceMin: currentPrefs.priceMin,
+          priceMax: currentPrefs.priceMax,
+          bedrooms: currentPrefs.bedrooms,
+          bathrooms: currentPrefs.bathrooms,
+          ratingMin: currentPrefs.ratingMin,
+          ratingMax: currentPrefs.ratingMax,
+          requiredAmenities: currentPrefs.requiredAmenities,
+          weights: {
+            distance: suggestion.distance,
+            amenities: suggestion.amenities,
+            quality: suggestion.quality,
+            rating: suggestion.rating,
+          },
+          // weightsLocked intentionally omitted - will not update database
         });
+
+        // Only show success message and confetti on first ML training (10 swipes)
+        if (swipeHistory.length === 10) {
+          setMlTrainingMessage(
+            `🎯 ML model trained! Your recommendations are now ${(result.accuracy! * 100).toFixed(0)}% accurate.`
+          );
+          setTimeout(() => setMlTrainingMessage(null), 5000);
+
+          // Show personalization message
+          setShowPersonalizedMessage(true);
+          setTimeout(() => setShowPersonalizedMessage(false), 4000);
+
+          // Trigger confetti celebration! 🎉
+          confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#6366f1', '#8b5cf6', '#ec4899', '#10b981'],
+          });
+        }
+
+        // Check if we should show/update the learning insight
+        const previousTopPriority = localStorage.getItem('haven_last_top_priority');
+        const previousAmenities = localStorage.getItem('haven_last_amenities');
+
+        // Get current amenity details
+        let amenityDetails: string | undefined;
+        let currentAmenities: string | undefined;
+        if (suggestion.topPriority === 'amenities' && learnedPrefs.preferredAmenities) {
+          const amenities = Object.entries(learnedPrefs.preferredAmenities)
+            .sort(([, a], [, b]) => (b as number) - (a as number))
+            .slice(0, 3)
+            .map(([amenity]) => amenity);
+          if (amenities.length > 0) {
+            amenityDetails = amenities.join(', ');
+            currentAmenities = amenities.sort().join('|'); // Sorted for comparison
+          }
+        }
+
+        // Check if there's a tie (multiple priorities with same weight)
+        const maxWeight = Math.max(suggestion.distance, suggestion.amenities, suggestion.quality, suggestion.rating);
+        const allPriorities: Array<{ name: string; weight: number }> = [
+          { name: 'distance', weight: suggestion.distance },
+          { name: 'amenities', weight: suggestion.amenities },
+          { name: 'quality', weight: suggestion.quality },
+          { name: 'rating', weight: suggestion.rating },
+        ];
+
+        const tiedPriorities = allPriorities
+          .filter(p => p.weight === maxWeight && p.name !== suggestion.topPriority)
+          .map(p => p.name);
+
+        // Show insight if: top priority changed OR amenities changed significantly
+        const topPriorityChanged = previousTopPriority !== suggestion.topPriority;
+        const amenitiesChanged = currentAmenities && previousAmenities !== currentAmenities;
+
+        if (topPriorityChanged || amenitiesChanged) {
+          // Update existing banner or create new one
+          setMlInsight({
+            topPriority: suggestion.topPriority,
+            confidence: suggestion.confidence,
+            amenityDetails,
+            tiedWith: tiedPriorities.length > 0 ? tiedPriorities : undefined,
+          });
+
+          // Save the new values
+          localStorage.setItem('haven_last_top_priority', suggestion.topPriority);
+          if (currentAmenities) {
+            localStorage.setItem('haven_last_amenities', currentAmenities);
+          }
+        }
+      } else {
+        console.warn('[Swipe] ML training failed:', result.error);
+        setMlTrainingMessage(`⚠️ ${result.error}`);
+        setTimeout(() => setMlTrainingMessage(null), 4000);
       }
+    } catch (error) {
+      console.error('[Swipe] ML training error:', error);
+      setMlTrainingMessage('⚠️ ML training failed. Will retry on next milestone.');
+      setTimeout(() => setMlTrainingMessage(null), 4000);
+    } finally {
+      setIsTrainingML(false);
     }
   };
 
@@ -112,49 +248,8 @@ export default function SwipePage() {
   }, [user?.preferences?.learned?.preferredAmenities]);
 
   // Check if this is a new user (for learning banner)
-  const isLearning = totalSwipes < 5 && !hasLearnedPreferences;
-  const swipesRemaining = Math.max(0, 5 - totalSwipes);
-
-  // Save learned preferences when user leaves (captures all session progress)
-  useEffect(() => {
-    if (!user || listings.length === 0) return;
-
-    // Capture current user and listings in closure for cleanup
-    const currentUser = user;
-    const currentListings = listings;
-    const savePreferences = updateLearnedPreferences;
-
-    // Save on unmount (when user leaves the page or logs out)
-    return () => {
-      const swipeHistory = getSwipeHistory();
-      if (swipeHistory.length >= 5) {
-        const newLearnedPreferences = calculateLearnedPreferences(currentListings, swipeHistory);
-        // Silently try to save (may fail if page is closing)
-        savePreferences(newLearnedPreferences).catch(() => {
-          // Ignore errors during page close - this is expected
-        });
-      }
-    };
-  }, [user, listings, updateLearnedPreferences]);
-
-  // Also save on browser close/refresh (backup)
-  useEffect(() => {
-    if (!user || listings.length === 0) return;
-
-    const handleBeforeUnload = () => {
-      const swipeHistory = getSwipeHistory();
-      if (swipeHistory.length >= 5) {
-        const newLearnedPreferences = calculateLearnedPreferences(listings, swipeHistory);
-        // Silently try to save (will likely fail during page close - this is expected)
-        updateLearnedPreferences(newLearnedPreferences).catch(() => {
-          // Ignore errors - browser cancels requests during unload
-        });
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [user, listings, updateLearnedPreferences]);
+  const isLearning = totalSwipes < 10 && !hasLearnedPreferences;
+  const swipesRemaining = Math.max(0, 10 - totalSwipes);
 
   // Filter and rank listings based on user preferences
   // NOTE: Array stays stable during session (uses initialReviewedIds from mount)
@@ -241,11 +336,8 @@ export default function SwipePage() {
       }
 
       filteredListings = listings.filter(listing => {
-        const addressLower = listing.address.toLowerCase();
-
-        // Extract the state from listing address (last part after comma)
-        const listingParts = addressLower.split(',').map(s => s.trim());
-        const listingState = listingParts[listingParts.length - 1] || '';
+        // Use the state field directly from listing
+        const listingState = ((listing as any).state?.toLowerCase() || '');
 
         // Check if listing state matches any user state variant
         if (userState && userState.length >= 2) {
@@ -308,8 +400,9 @@ export default function SwipePage() {
     if (userPreferences.requiredAmenities && userPreferences.requiredAmenities.length > 0) {
       filteredListings = filteredListings.filter(listing => {
         // Check if listing has all required amenities
+        const listingAmenities = extractAmenities(listing);
         return userPreferences.requiredAmenities!.every(requiredAmenity =>
-          listing.amenities.some(listingAmenity =>
+          listingAmenities.some(listingAmenity =>
             listingAmenity.toLowerCase().includes(requiredAmenity.toLowerCase()) ||
             requiredAmenity.toLowerCase().includes(listingAmenity.toLowerCase())
           )
@@ -415,6 +508,87 @@ export default function SwipePage() {
                     We've learned your preferences and re-ranked your recommendations. Listings are now ordered by what you're most likely to love!
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ML Training Success/Error Message */}
+        {mlTrainingMessage && (
+          <div className="mb-4 mx-auto max-w-2xl animate-in fade-in slide-in-from-top-2 duration-500">
+            <div className="bg-gradient-to-r from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-lg p-4 shadow-lg border border-emerald-400/30">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-white font-medium">
+                    {mlTrainingMessage}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ML Insight Banner */}
+        {mlInsight && (
+          <div className="mb-4 mx-auto max-w-2xl animate-in slide-in-from-top duration-300">
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 shadow-md">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">🤖</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-1">
+                    Learning Insight
+                  </p>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    {mlInsight.topPriority === 'amenities' && mlInsight.amenityDetails ? (
+                      <>
+                        You now prioritize <span className="font-bold">{mlInsight.topPriority}</span> when choosing apartments, especially: <span className="font-bold">{mlInsight.amenityDetails}</span>
+                        {mlInsight.tiedWith && mlInsight.tiedWith.length > 0 && (
+                          <> (along with <span className="font-bold">
+                            {mlInsight.tiedWith.length === 1
+                              ? mlInsight.tiedWith[0]
+                              : mlInsight.tiedWith.length === 2
+                              ? `${mlInsight.tiedWith[0]} and ${mlInsight.tiedWith[1]}`
+                              : `${mlInsight.tiedWith.slice(0, -1).join(', ')}, and ${mlInsight.tiedWith[mlInsight.tiedWith.length - 1]}`
+                            }</span>)</>
+                        )}.
+                      </>
+                    ) : (
+                      <>
+                        You now prioritize <span className="font-bold">{mlInsight.topPriority}</span> when choosing apartments
+                        {mlInsight.tiedWith && mlInsight.tiedWith.length > 0 && (
+                          <> (along with <span className="font-bold">
+                            {mlInsight.tiedWith.length === 1
+                              ? mlInsight.tiedWith[0]
+                              : mlInsight.tiedWith.length === 2
+                              ? `${mlInsight.tiedWith[0]} and ${mlInsight.tiedWith[1]}`
+                              : `${mlInsight.tiedWith.slice(0, -1).join(', ')}, and ${mlInsight.tiedWith[mlInsight.tiedWith.length - 1]}`
+                            }</span>)</>
+                        )}.
+                      </>
+                    )}
+                    {' '}Your match scores reflect this automatically.
+                  </p>
+                  <button
+                    onClick={() => router.push('/profile')}
+                    className="mt-2 text-xs text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-200 font-medium underline"
+                  >
+                    Don't agree? Update weights in profile →
+                  </button>
+                </div>
+                <button
+                  onClick={() => setMlInsight(null)}
+                  className="flex-shrink-0 text-purple-400 hover:text-purple-600 dark:hover:text-purple-200 transition-colors"
+                  aria-label="Dismiss"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
             </div>
           </div>

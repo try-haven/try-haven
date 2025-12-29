@@ -1,11 +1,11 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
-import { getAllListings, Listing } from "@/lib/listings";
-import { ApartmentListing } from "@/lib/data";
+import { getAllListingsNYC } from "@/lib/listings";
+import { NYCApartmentListing } from "@/lib/data";
 
 interface ListingsContextType {
-  listings: ApartmentListing[];
+  listings: NYCApartmentListing[];
   isLoading: boolean;
   refreshListings: () => Promise<void>;
 }
@@ -13,7 +13,7 @@ interface ListingsContextType {
 const ListingsContext = createContext<ListingsContextType | undefined>(undefined);
 
 export function ListingsProvider({ children }: { children: ReactNode }) {
-  const [listings, setListings] = useState<ApartmentListing[]>([]);
+  const [listings, setListings] = useState<NYCApartmentListing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isLoadingInProgressRef = useRef(false); // Prevent concurrent loads
@@ -52,33 +52,16 @@ export function ListingsProvider({ children }: { children: ReactNode }) {
     setLoadingWithTimeout(true);
 
     try {
-      console.log('[ListingsContext] Loading listings...', retryCount > 0 ? `(retry ${retryCount})` : '');
-      const supabaseListings = await getAllListings();
+      console.log('[ListingsContext] Loading NYC listings...', retryCount > 0 ? `(retry ${retryCount})` : '');
+      const nycListings = await getAllListingsNYC();
 
       if (!mountedRef.current) return; // Abort if unmounted
 
-      console.log('[ListingsContext] Loaded', supabaseListings.length, 'listings');
+      console.log('[ListingsContext] Loaded', nycListings.length, 'NYC listings');
 
-      const convertedListings: ApartmentListing[] = supabaseListings.map(listing => ({
-        id: listing.id,
-        title: listing.title,
-        address: listing.address,
-        latitude: listing.latitude ? Number(listing.latitude) : undefined,
-        longitude: listing.longitude ? Number(listing.longitude) : undefined,
-        price: Number(listing.price),
-        bedrooms: listing.bedrooms,
-        bathrooms: listing.bathrooms,
-        sqft: listing.sqft,
-        images: listing.images || [],
-        amenities: listing.amenities || [],
-        description: listing.description,
-        availableFrom: listing.available_from,
-        averageRating: listing.average_rating ? Number(listing.average_rating) : undefined,
-        totalRatings: listing.total_ratings || undefined,
-      }));
-
+      // No conversion needed - listings are already in correct NYCApartmentListing format
       if (mountedRef.current) {
-        setListings(convertedListings);
+        setListings(nycListings);
       }
     } catch (error) {
       console.error("[ListingsContext] Error loading listings:", error);

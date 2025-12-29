@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ApartmentListing, Review } from "@/lib/data";
+import { ApartmentListing, NYCApartmentListing, Review } from "@/lib/data";
 import { useUser } from "@/contexts/UserContext";
 import { generateAnonymousNickname } from "@/lib/nicknames";
 import SharedNavbar from "@/components/SharedNavbar";
@@ -18,8 +18,8 @@ export default function SearchPage() {
   const { likedCount } = useLikedListingsContext();
   const { listings: allListings, isLoading: isLoadingListings } = useListings();
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<ApartmentListing[]>([]);
-  const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
+  const [searchResults, setSearchResults] = useState<(ApartmentListing | NYCApartmentListing)[]>([]);
+  const [selectedListing, setSelectedListing] = useState<ApartmentListing | NYCApartmentListing | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [userRating, setUserRating] = useState<number>(0);
@@ -211,7 +211,7 @@ export default function SearchPage() {
                 <div className="relative h-48 mb-3 rounded-lg overflow-hidden">
                   <Image
                     src={listing.images[0]}
-                    alt={listing.title}
+                    alt={`${listing.bedrooms} bedroom apartment at ${listing.address}`}
                     fill
                     className="object-cover"
                     unoptimized

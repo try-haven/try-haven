@@ -1,6 +1,6 @@
 "use client";
 
-import { ApartmentListing, Review } from "@/lib/data";
+import { ApartmentListing, NYCApartmentListing, Review } from "@/lib/data";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import SharedNavbar from "./SharedNavbar";
@@ -22,9 +22,9 @@ interface ReviewedListingsProps {
 
 export default function ReviewedListings({ onBack, onBackToHome, likedCount = 0 }: ReviewedListingsProps) {
   const { logOut, user, markListingAsReviewed } = useUser();
-  const [reviewedListings, setReviewedListings] = useState<Array<{ listing: ApartmentListing; review: Review }>>([]);
+  const [reviewedListings, setReviewedListings] = useState<Array<{ listing: ApartmentListing | NYCApartmentListing; review: Review }>>([]);
   const { listings: allListings, isLoading: isLoadingListings } = useListings();
-  const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
+  const [selectedListing, setSelectedListing] = useState<ApartmentListing | NYCApartmentListing | null>(null);
   const [selectedReview, setSelectedReview] = useState<Review | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -40,7 +40,7 @@ export default function ReviewedListings({ onBack, onBackToHome, likedCount = 0 
   const reloadReviewedListings = async () => {
     if (!user || allListings.length === 0) return;
 
-    const reviewed: Array<{ listing: ApartmentListing; review: Review }> = [];
+    const reviewed: Array<{ listing: ApartmentListing | NYCApartmentListing; review: Review }> = [];
 
     await Promise.all(
       allListings.map(async (listing) => {
@@ -533,7 +533,7 @@ export default function ReviewedListings({ onBack, onBackToHome, likedCount = 0 
                 {listing.images[0] ? (
                   <Image
                     src={listing.images[0]}
-                    alt={listing.title}
+                    alt={`${listing.bedrooms} bedroom apartment at ${listing.address}`}
                     fill
                     className="object-cover"
                     unoptimized

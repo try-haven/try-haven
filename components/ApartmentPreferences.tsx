@@ -19,6 +19,8 @@ interface ApartmentPreferencesData {
   ratingMin?: number;
   ratingMax?: number;
   requiredAmenities?: string[];
+  requiredView?: string[]; // e.g., ["City", "Water", "Park"]
+  requiredNeighborhoods?: string[]; // e.g., ["Manhattan", "Brooklyn"]
   weights?: ScoringWeights;
 }
 
@@ -29,14 +31,16 @@ interface ApartmentPreferencesProps {
 }
 
 export default function ApartmentPreferences({ onNext, onBack, initialPreferences }: ApartmentPreferencesProps) {
-  // State for preferences
-  const [priceMin, setPriceMin] = useState<number>(initialPreferences?.priceMin || 500);
-  const [priceMax, setPriceMax] = useState<number>(initialPreferences?.priceMax || 5000);
+  // State for preferences - auto-set price to full range (0-10000)
+  const [priceMin, setPriceMin] = useState<number>(initialPreferences?.priceMin ?? 0);
+  const [priceMax, setPriceMax] = useState<number>(initialPreferences?.priceMax ?? 10000);
   const [selectedBedrooms, setSelectedBedrooms] = useState<number[]>(initialPreferences?.bedrooms || []);
   const [selectedBathrooms, setSelectedBathrooms] = useState<number[]>(initialPreferences?.bathrooms || []);
   const [ratingMin, setRatingMin] = useState<number>(initialPreferences?.ratingMin || 0);
   const [ratingMax, setRatingMax] = useState<number>(initialPreferences?.ratingMax || 5);
   const [requiredAmenities, setRequiredAmenities] = useState<string[]>(initialPreferences?.requiredAmenities || []);
+  const [requiredView, setRequiredView] = useState<string[]>(initialPreferences?.requiredView || []);
+  const [requiredNeighborhoods, setRequiredNeighborhoods] = useState<string[]>(initialPreferences?.requiredNeighborhoods || []);
 
   // State for "no preference" toggles - default to false so users see the controls
   const [noPricePreference, setNoPricePreference] = useState(false);
@@ -44,14 +48,29 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
   const [noBathroomsPreference, setNoBathroomsPreference] = useState(false);
   const [noRatingPreference, setNoRatingPreference] = useState(false);
 
-  // State for scoring weights
-  const [weightDistance, setWeightDistance] = useState<number>(initialPreferences?.weights?.distance ?? 40);
-  const [weightAmenities, setWeightAmenities] = useState<number>(initialPreferences?.weights?.amenities ?? 35);
-  const [weightQuality, setWeightQuality] = useState<number>(initialPreferences?.weights?.quality ?? 15);
-  const [weightRating, setWeightRating] = useState<number>(initialPreferences?.weights?.rating ?? 10);
-  const [useDefaultWeights, setUseDefaultWeights] = useState(!initialPreferences?.weights);
 
   const [error, setError] = useState("");
+
+  const handleClearAll = () => {
+    // Clear all filters - set price to full range
+    setPriceMin(0);
+    setPriceMax(10000);
+    setSelectedBedrooms([]);
+    setSelectedBathrooms([]);
+    setRatingMin(0);
+    setRatingMax(5);
+    setRequiredAmenities([]);
+    setRequiredView([]);
+    setRequiredNeighborhoods([]);
+
+    // Enable all "no preference" toggles
+    setNoPricePreference(true);
+    setNoBedroomsPreference(true);
+    setNoBathroomsPreference(true);
+    setNoRatingPreference(true);
+
+    setError("");
+  };
 
   const handleNext = () => {
     setError("");
@@ -70,26 +89,18 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
       preferences.priceMax = priceMax;
     }
 
-    // Add bedroom selections
-    if (!noBedroomsPreference) {
-      if (selectedBedrooms.length === 0) {
-        setError("Please select at least one bedroom option or check 'No preference'");
-        return;
-      }
+    // Add bedroom selections - if nothing selected, treat as no preference
+    if (!noBedroomsPreference && selectedBedrooms.length > 0) {
       preferences.bedrooms = selectedBedrooms;
     } else {
-      preferences.bedrooms = undefined; // Clear bedrooms if no preference
+      preferences.bedrooms = undefined; // No preference
     }
 
-    // Add bathroom selections
-    if (!noBathroomsPreference) {
-      if (selectedBathrooms.length === 0) {
-        setError("Please select at least one bathroom option or check 'No preference'");
-        return;
-      }
+    // Add bathroom selections - if nothing selected, treat as no preference
+    if (!noBathroomsPreference && selectedBathrooms.length > 0) {
       preferences.bathrooms = selectedBathrooms;
     } else {
-      preferences.bathrooms = undefined; // Clear bathrooms if no preference
+      preferences.bathrooms = undefined; // No preference
     }
 
     // Validate and add rating range
@@ -107,19 +118,22 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
       preferences.requiredAmenities = requiredAmenities;
     }
 
-    // Validate and add scoring weights (always save, even if using defaults)
-    const totalWeight = weightDistance + weightAmenities + weightQuality + weightRating;
-    if (!useDefaultWeights && totalWeight !== 100) {
-      // Only validate if user customized weights
-      setError(`Scoring weights must sum to 100% (currently ${totalWeight}%)`);
-      return;
+    // Add required view (hard filter)
+    if (requiredView.length > 0) {
+      preferences.requiredView = requiredView;
     }
 
+    // Add required neighborhoods (hard filter)
+    if (requiredNeighborhoods.length > 0) {
+      preferences.requiredNeighborhoods = requiredNeighborhoods;
+    }
+
+    // Always use default scoring weights (user can customize in profile)
     preferences.weights = {
-      distance: weightDistance,
-      amenities: weightAmenities,
-      quality: weightQuality,
-      rating: weightRating,
+      distance: 40,
+      amenities: 35,
+      quality: 15,
+      rating: 10,
     };
 
     onNext(preferences);
@@ -376,16 +390,15 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
             </div>
             <div className="grid grid-cols-2 gap-2">
               {[
-                "Parking",
                 "In-unit laundry",
+                "Building laundry",
                 "Dishwasher",
                 "AC",
-                "Gym",
-                "Pool",
                 "Pet-friendly",
-                "Balcony",
-                "Near transit",
-                "Rooftop access",
+                "Fireplace",
+                "Gym",
+                "Parking",
+                "Pool",
               ].map((amenity) => (
                 <button
                   key={amenity}
@@ -409,117 +422,98 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
             </div>
           </div>
 
-          {/* Scoring Weights */}
+          {/* View Type Filter */}
           <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3">
               <label className="text-sm font-medium text-gray-900 dark:text-white">
-                Match Score Weights
+                View Type
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <input
-                  type="checkbox"
-                  checked={useDefaultWeights}
-                  onChange={(e) => {
-                    setUseDefaultWeights(e.target.checked);
-                    if (e.target.checked) {
-                      setWeightDistance(40);
-                      setWeightAmenities(35);
-                      setWeightQuality(15);
-                      setWeightRating(10);
-                    }
-                  }}
-                  className="rounded"
-                />
-                Use defaults
-              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Select the view types you prefer (optional)
+              </p>
             </div>
-            {!useDefaultWeights && (
-              <div className="space-y-3">
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Customize how much each factor contributes to your match score. Must sum to 100%.
-                </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                "City",
+                "Water",
+                "Park",
+                "Garden",
+                "Mountain",
+                "Skyline",
+              ].map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => {
+                    setRequiredView(prev =>
+                      prev.includes(view)
+                        ? prev.filter(v => v !== view)
+                        : [...prev, view]
+                    );
+                  }}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                    requiredView.includes(view)
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {view}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                {/* Distance Weight */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">📍 Distance</label>
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">{weightDistance}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={weightDistance}
-                    onChange={(e) => setWeightDistance(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
-                  />
-                </div>
-
-                {/* Amenities Weight */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">🌟 Amenities</label>
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">{weightAmenities}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={weightAmenities}
-                    onChange={(e) => setWeightAmenities(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
-                  />
-                </div>
-
-                {/* Quality Weight */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">📸 Quality</label>
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">{weightQuality}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={weightQuality}
-                    onChange={(e) => setWeightQuality(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
-                  />
-                </div>
-
-                {/* Rating Weight */}
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs text-gray-600 dark:text-gray-400">⭐ Rating</label>
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">{weightRating}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    value={weightRating}
-                    onChange={(e) => setWeightRating(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
-                  />
-                </div>
-
-                {/* Total Display */}
-                <div className={`flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700 ${
-                  weightDistance + weightAmenities + weightQuality + weightRating === 100
-                    ? 'text-green-600 dark:text-green-400'
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  <span className="text-xs font-medium">Total:</span>
-                  <span className="text-sm font-bold">
-                    {weightDistance + weightAmenities + weightQuality + weightRating}%
-                  </span>
-                </div>
-              </div>
-            )}
+          {/* Neighborhood Filter */}
+          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+            <div className="mb-3">
+              <label className="text-sm font-medium text-gray-900 dark:text-white">
+                Neighborhoods
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Select specific neighborhoods you're interested in (optional)
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+              {[
+                "Manhattan",
+                "Brooklyn",
+                "Queens",
+                "Bronx",
+                "Staten Island",
+                "Upper East Side",
+                "Upper West Side",
+                "Midtown",
+                "Chelsea",
+                "Greenwich Village",
+                "SoHo",
+                "TriBeCa",
+                "Financial District",
+                "Williamsburg",
+                "DUMBO",
+                "Park Slope",
+                "Astoria",
+                "Long Island City",
+              ].map((neighborhood) => (
+                <button
+                  key={neighborhood}
+                  type="button"
+                  onClick={() => {
+                    setRequiredNeighborhoods(prev =>
+                      prev.includes(neighborhood)
+                        ? prev.filter(n => n !== neighborhood)
+                        : [...prev, neighborhood]
+                    );
+                  }}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors text-left ${
+                    requiredNeighborhoods.includes(neighborhood)
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  }`}
+                >
+                  {neighborhood}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -529,6 +523,16 @@ export default function ApartmentPreferences({ onNext, onBack, initialPreference
             <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
           </div>
         )}
+
+        {/* Clear All Button */}
+        <div className="mb-4">
+          <button
+            onClick={handleClearAll}
+            className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+          >
+            🗑️ Clear All Filters (No Preferences)
+          </button>
+        </div>
 
         {/* Buttons */}
         <div className="flex gap-4">

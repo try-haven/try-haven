@@ -307,7 +307,7 @@ export default function ManagerDashboard() {
                             {listing.images[0] && (
                               <img
                                 src={listing.images[0]}
-                                alt={listing.title}
+                                alt={`${listing.bedrooms} bedroom apartment at ${listing.address}`}
                                 className="w-12 h-12 rounded object-cover"
                               />
                             )}

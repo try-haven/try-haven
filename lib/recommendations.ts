@@ -1,5 +1,6 @@
-import { ApartmentListing } from "./data";
+import { ApartmentListing, NYCApartmentListing, NYCAmenities } from "./data";
 import { calculateDistance, scoreByDistance } from "./geocoding";
+import { predictSwipeLikelihood, isModelValid, ModelWeights } from "./ml-model";
 
 interface ScoringWeights {
   distance: number;   // 0-100 percentage
@@ -14,6 +15,7 @@ interface LearnedPreferences {
   avgImageCount?: number; // Average number of images in liked listings
   avgDescriptionLength?: number; // Average description length in liked listings
   updatedAt?: string; // ISO timestamp of last update
+  mlModel?: ModelWeights; // ML model weights for personalized predictions
 }
 
 // Internal learned preferences (uses Map for efficient lookups)
@@ -35,7 +37,10 @@ interface UserPreferences {
   ratingMin?: number;
   ratingMax?: number;
   requiredAmenities?: string[]; // Hard filter - listings must have these
+  requiredView?: string[]; // Hard filter - view types required
+  requiredNeighborhoods?: string[]; // Hard filter - specific neighborhoods
   weights?: ScoringWeights; // Custom scoring weights (defaults to 40/35/15/10)
+  weightsLocked?: boolean; // If true, prevents ML model from overriding weights
   learned?: LearnedPreferences; // Learned preferences from swipe behavior
 }
 
@@ -46,15 +51,53 @@ export interface ScoreBreakdown {
   rating?: { score: number; percentage: number; label: string };    // e.g., "4.2★" or "No reviews"
 }
 
-interface ListingWithScore extends ApartmentListing {
+type ListingWithScore = (ApartmentListing | NYCApartmentListing) & {
   matchScore: number;
   isTopPick: boolean;
   scoreBreakdown?: ScoreBreakdown;
-}
+};
 
 interface SwipeHistory {
   listingId: string;
   liked: boolean;
+}
+
+/**
+ * Convert NYC binary amenities to string array for compatibility with existing recommendation logic
+ */
+function convertNYCAmenitiesToArray(amenities: NYCAmenities): string[] {
+  const result: string[] = [];
+
+  if (amenities.washerDryerInUnit) result.push("In-unit laundry", "Washer/Dryer in unit");
+  if (amenities.washerDryerInBuilding) result.push("Washer/Dryer in building", "Laundry facilities");
+  if (amenities.dishwasher) result.push("Dishwasher");
+  if (amenities.ac) result.push("AC", "Air conditioning");
+  // Don't include pets here - it's shown as a badge above
+  if (amenities.fireplace) result.push("Fireplace");
+  if (amenities.gym) result.push("Gym", "Fitness center");
+  if (amenities.parking) result.push("Parking");
+  if (amenities.pool) result.push("Pool", "Swimming pool");
+  // Only include outdoor area if it's not "None"
+  // Just use the specific type (Patio, Balcony, etc.) - don't add generic "Outdoor space"
+  if (amenities.outdoorArea && amenities.outdoorArea.toLowerCase() !== 'none') {
+    result.push(amenities.outdoorArea);
+  }
+  // Don't include view here - it's shown as a badge above
+
+  return result;
+}
+
+/**
+ * Type-safe amenity extraction that works with both old and new listing formats
+ */
+export function extractAmenities(listing: ApartmentListing | NYCApartmentListing): string[] {
+  // Check if it's NYC listing (has amenities object instead of array)
+  if ('amenities' in listing && typeof listing.amenities === 'object' && !Array.isArray(listing.amenities)) {
+    return convertNYCAmenitiesToArray(listing.amenities as NYCAmenities);
+  }
+
+  // Old format - amenities is already an array
+  return (listing as ApartmentListing).amenities || [];
 }
 
 /**
@@ -63,7 +106,7 @@ interface SwipeHistory {
  */
 function learnFromSwipeHistory(
   swipeHistory: SwipeHistory[],
-  allListings: ApartmentListing[]
+  allListings: (ApartmentListing | NYCApartmentListing)[]
 ): LearnedPreferencesInternal {
   // Get all liked listings
   const likedListingIds = swipeHistory.filter((s) => s.liked).map((s) => s.listingId);
@@ -89,23 +132,21 @@ function learnFromSwipeHistory(
   // Learn amenity preferences
   const amenityFrequency = new Map<string, number>();
   likedListings.forEach((listing) => {
-    if (listing.amenities) {
-      listing.amenities.forEach((amenity) => {
-        const normalized = amenity.toLowerCase().trim();
-        amenityFrequency.set(normalized, (amenityFrequency.get(normalized) || 0) + 1);
-      });
-    }
+    const amenities = extractAmenities(listing);
+    amenities.forEach((amenity) => {
+      const normalized = amenity.toLowerCase().trim();
+      amenityFrequency.set(normalized, (amenityFrequency.get(normalized) || 0) + 1);
+    });
   });
 
   // Calculate amenity preference strength (liked vs disliked)
   const dislikedAmenityFrequency = new Map<string, number>();
   dislikedListings.forEach((listing) => {
-    if (listing.amenities) {
-      listing.amenities.forEach((amenity) => {
-        const normalized = amenity.toLowerCase().trim();
-        dislikedAmenityFrequency.set(normalized, (dislikedAmenityFrequency.get(normalized) || 0) + 1);
-      });
-    }
+    const amenities = extractAmenities(listing);
+    amenities.forEach((amenity) => {
+      const normalized = amenity.toLowerCase().trim();
+      dislikedAmenityFrequency.set(normalized, (dislikedAmenityFrequency.get(normalized) || 0) + 1);
+    });
   });
 
   // Adjust amenity scores based on contrast with disliked listings
@@ -150,10 +191,11 @@ function learnFromSwipeHistory(
  * - Rating: 10% (if available)
  */
 function calculateMatchScore(
-  listing: ApartmentListing,
+  listing: ApartmentListing | NYCApartmentListing,
   preferences: UserPreferences,
   learnedPreferences: LearnedPreferencesInternal
 ): { score: number; breakdown: ScoreBreakdown } {
+  // Use rule-based scoring with learned weights
   let score = 0;
   let maxScore = 0;
   const breakdown: ScoreBreakdown = {};
@@ -212,9 +254,10 @@ function calculateMatchScore(
     let amenitiesScore = 0;
     const matchedAmenities: string[] = [];
 
-    if (listing.amenities && listing.amenities.length > 0) {
+    const listingAmenities = extractAmenities(listing);
+    if (listingAmenities.length > 0) {
       // Calculate weighted score based on amenity preferences
-      listing.amenities.forEach((amenity) => {
+      listingAmenities.forEach((amenity) => {
         const normalized = amenity.toLowerCase().trim();
         const preferenceWeight = learnedPreferences.preferredAmenities!.get(normalized) || 0;
         if (preferenceWeight > 0) {
@@ -246,20 +289,23 @@ function calculateMatchScore(
       percentage: amenitiesScore * 100,
       label
     };
-  } else if (listing.amenities && listing.amenities.length > 0) {
-    // Fallback: give bonus for having more amenities (before learning kicks in)
-    const amenitiesScore = Math.min(1, listing.amenities.length / 8); // 8+ amenities = perfect
-    const amenitiesPoints = weights.amenities * amenitiesScore;
-    addScore(weights.amenities, amenitiesScore);
+  } else {
+    const listingAmenities = extractAmenities(listing);
+    if (listingAmenities.length > 0) {
+      // Fallback: give bonus for having more amenities (before learning kicks in)
+      const amenitiesScore = Math.min(1, listingAmenities.length / 8); // 8+ amenities = perfect
+      const amenitiesPoints = weights.amenities * amenitiesScore;
+      addScore(weights.amenities, amenitiesScore);
 
-    const topAmenities = listing.amenities.slice(0, 2);
-    const label = topAmenities.join(", ");
+      const topAmenities = listingAmenities.slice(0, 2);
+      const label = topAmenities.join(", ");
 
-    breakdown.amenities = {
-      score: amenitiesPoints,
-      percentage: amenitiesScore * 100,
-      label
-    };
+      breakdown.amenities = {
+        score: amenitiesPoints,
+        percentage: amenitiesScore * 100,
+        label
+      };
+    }
   }
 
   // Quality match (weight: 15)
@@ -338,8 +384,10 @@ function calculateMatchScore(
     return { score: 50, breakdown }; // Neutral score
   }
 
+  const finalScore = (score / maxScore) * 100;
+
   return {
-    score: (score / maxScore) * 100,
+    score: finalScore,
     breakdown
   };
 }
@@ -384,7 +432,7 @@ export function shouldUpdateLearnedPreferences(userPreferences: UserPreferences,
  * This should be called periodically and saved to the user profile
  */
 export function calculateLearnedPreferences(
-  listings: ApartmentListing[],
+  listings: (ApartmentListing | NYCApartmentListing)[],
   swipeHistory: SwipeHistory[] = []
 ): LearnedPreferences {
   const learned = learnFromSwipeHistory(swipeHistory, listings);
@@ -402,8 +450,96 @@ export function calculateLearnedPreferences(
  * Rank listings based on user preferences and learned preferences
  * Returns listings sorted by match score (highest first)
  */
+/**
+ * Apply hard filters to listings based on user preferences
+ * Returns only listings that meet ALL required criteria
+ */
+export function applyHardFilters(
+  listings: (ApartmentListing | NYCApartmentListing)[],
+  userPreferences: UserPreferences
+): (ApartmentListing | NYCApartmentListing)[] {
+  return listings.filter((listing) => {
+    // Price filter
+    if (userPreferences.priceMin !== undefined && listing.price < userPreferences.priceMin) {
+      return false;
+    }
+    if (userPreferences.priceMax !== undefined && listing.price > userPreferences.priceMax) {
+      return false;
+    }
+
+    // Bedrooms filter
+    if (userPreferences.bedrooms && userPreferences.bedrooms.length > 0) {
+      if (!userPreferences.bedrooms.includes(listing.bedrooms)) {
+        return false;
+      }
+    }
+
+    // Bathrooms filter
+    if (userPreferences.bathrooms && userPreferences.bathrooms.length > 0) {
+      if (!userPreferences.bathrooms.includes(listing.bathrooms)) {
+        return false;
+      }
+    }
+
+    // Rating filter (if listing has ratings)
+    if (listing.averageRating !== undefined && listing.averageRating !== null) {
+      if (userPreferences.ratingMin !== undefined && listing.averageRating < userPreferences.ratingMin) {
+        return false;
+      }
+      if (userPreferences.ratingMax !== undefined && listing.averageRating > userPreferences.ratingMax) {
+        return false;
+      }
+    }
+
+    // Required amenities filter
+    if (userPreferences.requiredAmenities && userPreferences.requiredAmenities.length > 0) {
+      const listingAmenities = extractAmenities(listing);
+      const hasAllRequiredAmenities = userPreferences.requiredAmenities.every(required =>
+        listingAmenities.some(amenity =>
+          amenity.toLowerCase().includes(required.toLowerCase()) ||
+          required.toLowerCase().includes(amenity.toLowerCase())
+        )
+      );
+      if (!hasAllRequiredAmenities) {
+        return false;
+      }
+    }
+
+    // View filter (NYC listings only)
+    if (userPreferences.requiredView && userPreferences.requiredView.length > 0 && 'amenities' in listing) {
+      if (!listing.amenities.view) {
+        return false; // No view at all
+      }
+      // Check if the listing's view matches any of the required views
+      const hasRequiredView = userPreferences.requiredView.some(requiredView =>
+        listing.amenities.view?.toLowerCase().includes(requiredView.toLowerCase())
+      );
+      if (!hasRequiredView) {
+        return false;
+      }
+    }
+
+    // Neighborhood filter (NYC listings only)
+    if (userPreferences.requiredNeighborhoods && userPreferences.requiredNeighborhoods.length > 0 && 'neighborhood' in listing) {
+      if (!listing.neighborhood) {
+        return false; // No neighborhood info
+      }
+      // Check if the listing's neighborhood matches any of the required neighborhoods
+      const hasRequiredNeighborhood = userPreferences.requiredNeighborhoods.some(requiredNeighborhood =>
+        listing.neighborhood?.toLowerCase().includes(requiredNeighborhood.toLowerCase()) ||
+        requiredNeighborhood.toLowerCase().includes(listing.neighborhood?.toLowerCase() || '')
+      );
+      if (!hasRequiredNeighborhood) {
+        return false;
+      }
+    }
+
+    return true; // Passed all filters
+  });
+}
+
 export function rankListings(
-  listings: ApartmentListing[],
+  listings: (ApartmentListing | NYCApartmentListing)[],
   userPreferences: UserPreferences,
   swipeHistory: SwipeHistory[] = []
 ): ListingWithScore[] {

@@ -21,8 +21,20 @@ export default function AddListingPage() {
     sqft: "",
     description: "",
     availableFrom: "",
-    amenities: "",
     images: "",
+  });
+  const [amenities, setAmenities] = useState({
+    washerDryerInUnit: false,
+    washerDryerInBuilding: false,
+    dishwasher: false,
+    ac: false,
+    pets: false,
+    fireplace: false,
+    gym: false,
+    parking: false,
+    pool: false,
+    balcony: false,
+    view: false,
   });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,6 +56,13 @@ export default function AddListingPage() {
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handleAmenityToggle = (amenity: keyof typeof amenities) => {
+    setAmenities(prev => ({
+      ...prev,
+      [amenity]: !prev[amenity]
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -71,11 +90,19 @@ export default function AddListingPage() {
         return;
       }
 
-      // Parse amenities
-      const amenitiesList = formData.amenities
-        .split(",")
-        .map(a => a.trim())
-        .filter(a => a.length > 0);
+      // Convert amenities object to array
+      const amenitiesList: string[] = [];
+      if (amenities.washerDryerInUnit) amenitiesList.push("In-unit laundry");
+      if (amenities.washerDryerInBuilding) amenitiesList.push("Washer/Dryer in building");
+      if (amenities.dishwasher) amenitiesList.push("Dishwasher");
+      if (amenities.ac) amenitiesList.push("AC");
+      if (amenities.pets) amenitiesList.push("Pet-friendly");
+      if (amenities.fireplace) amenitiesList.push("Fireplace");
+      if (amenities.gym) amenitiesList.push("Gym");
+      if (amenities.parking) amenitiesList.push("Parking");
+      if (amenities.pool) amenitiesList.push("Pool");
+      if (amenities.balcony) amenitiesList.push("Balcony");
+      if (amenities.view) amenitiesList.push("View");
 
       // Create listing in Supabase
       const listing = await createListing({
@@ -269,19 +296,112 @@ export default function AddListingPage() {
             {/* Amenities */}
             <div>
               <label className={inputStyles.label}>
-                Amenities (comma-separated)
+                Amenities
               </label>
-              <input
-                type="text"
-                name="amenities"
-                value={formData.amenities}
-                onChange={handleChange}
-                placeholder="e.g., In-unit laundry, Parking, Gym, Pool"
-                className={inputStyles.standard}
-              />
-              <p className={textStyles.helperWithMargin}>
-                Separate each amenity with a comma
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Select all amenities that apply to this listing
               </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.washerDryerInUnit}
+                    onChange={() => handleAmenityToggle('washerDryerInUnit')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">In-unit Washer/Dryer</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.washerDryerInBuilding}
+                    onChange={() => handleAmenityToggle('washerDryerInBuilding')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Building Laundry</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.dishwasher}
+                    onChange={() => handleAmenityToggle('dishwasher')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Dishwasher</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.ac}
+                    onChange={() => handleAmenityToggle('ac')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Air Conditioning</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.pets}
+                    onChange={() => handleAmenityToggle('pets')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Pet-Friendly</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.fireplace}
+                    onChange={() => handleAmenityToggle('fireplace')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Fireplace</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.gym}
+                    onChange={() => handleAmenityToggle('gym')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Gym</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.parking}
+                    onChange={() => handleAmenityToggle('parking')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Parking</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.pool}
+                    onChange={() => handleAmenityToggle('pool')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Pool</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.balcony}
+                    onChange={() => handleAmenityToggle('balcony')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Balcony</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.view}
+                    onChange={() => handleAmenityToggle('view')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">View</span>
+                </label>
+              </div>
             </div>
 
             {/* Images */}

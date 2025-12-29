@@ -338,7 +338,7 @@ function ListingContent({ listingId }: { listingId: string | null }) {
               {listing.images[imageIndex] && (
                 <Image
                   src={listing.images[imageIndex]}
-                  alt={listing.title}
+                  alt={`${listing.bedrooms} bedroom apartment at ${listing.address} - Image ${imageIndex + 1} of ${listing.images.length}`}
                   fill
                   className="object-cover"
                   unoptimized

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import SharedNavbar from "@/components/SharedNavbar";
@@ -9,13 +9,90 @@ import { useLikedListingsContext } from "@/contexts/LikedListingsContext";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, updatePreferences, loading, deleteAccount } = useUser();
+  const { user, updatePreferences, updateLearnedPreferences, loading, deleteAccount } = useUser();
   const { clearAllLikes } = useLikedListingsContext();
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Weight customization state
+  const [weightDistance, setWeightDistance] = useState<number>(40);
+  const [weightAmenities, setWeightAmenities] = useState<number>(35);
+  const [weightQuality, setWeightQuality] = useState<number>(15);
+  const [weightRating, setWeightRating] = useState<number>(10);
+  const [weightsLocked, setWeightsLocked] = useState<boolean>(user?.preferences?.weightsLocked ?? false);
+  const [isSavingWeights, setIsSavingWeights] = useState(false);
+  const [weightsSaveSuccess, setWeightsSaveSuccess] = useState(false);
+  const [weightsError, setWeightsError] = useState<string | null>(null);
+
+  // Sync weight state with user preferences when they load
+  useEffect(() => {
+    if (!user) return;
+
+    // Load saved weights (or use defaults)
+    if (user.preferences?.weights) {
+      setWeightDistance(user.preferences.weights.distance);
+      setWeightAmenities(user.preferences.weights.amenities);
+      setWeightQuality(user.preferences.weights.quality);
+      setWeightRating(user.preferences.weights.rating);
+    }
+
+    if (user.preferences?.weightsLocked !== undefined) {
+      setWeightsLocked(user.preferences.weightsLocked);
+    }
+  }, [user]);
+
+  const handleEqualSplit = () => {
+    setWeightDistance(25);
+    setWeightAmenities(25);
+    setWeightQuality(25);
+    setWeightRating(25);
+    setWeightsError(null);
+  };
+
+  const handleResetToDefaults = () => {
+    setWeightDistance(40);
+    setWeightAmenities(35);
+    setWeightQuality(15);
+    setWeightRating(10);
+    setWeightsError(null);
+  };
+
+  const handleSaveWeights = async () => {
+    setWeightsError(null);
+    setWeightsSaveSuccess(false);
+
+    // Validate that weights sum to 100
+    const totalWeight = weightDistance + weightAmenities + weightQuality + weightRating;
+    if (totalWeight !== 100) {
+      setWeightsError(`Weights must sum to 100% (currently ${totalWeight}%)`);
+      return;
+    }
+
+    setIsSavingWeights(true);
+    try {
+      await updatePreferences({
+        ...user?.preferences,
+        weights: {
+          distance: weightDistance,
+          amenities: weightAmenities,
+          quality: weightQuality,
+          rating: weightRating,
+        },
+        weightsLocked,
+      });
+
+      setWeightsSaveSuccess(true);
+      setTimeout(() => setWeightsSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error("Error saving weights:", error);
+      setWeightsError("Failed to save weights. Please try again.");
+    } finally {
+      setIsSavingWeights(false);
+    }
+  };
 
   const handleResetAccount = async () => {
     setIsResetting(true);
@@ -42,13 +119,14 @@ export default function ProfilePage() {
           quality: 15,
           rating: 10,
         },
-        learned: {
-          preferredAmenities: {},
-          preferredLocations: [],
-          avgImageCount: undefined,
-          avgDescriptionLength: undefined,
-          updatedAt: undefined,
-        },
+      });
+
+      // Clear all learned preferences (must be done separately)
+      await updateLearnedPreferences({
+        preferredAmenities: {},
+        avgImageCount: undefined,
+        avgDescriptionLength: undefined,
+        updatedAt: undefined,
       });
 
       // Clear all user-specific local storage
@@ -152,6 +230,171 @@ export default function ProfilePage() {
                 </label>
                 <p className={`${textStyles.body} capitalize`}>{user.userType}</p>
               </div>
+            </div>
+
+            {/* Match Score Weights Customization */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-8">
+              <h2 className={`${textStyles.heading} mb-2`}>
+                Match Score Weights
+              </h2>
+              <p className={`${textStyles.body} text-gray-600 dark:text-gray-400 mb-4`}>
+                Customize how much each factor contributes to your match score. Our system learns from your swipes to suggest weights, but you can manually adjust and lock them if needed.
+              </p>
+
+              {/* Weights Locked Toggle */}
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={weightsLocked}
+                    onChange={(e) => setWeightsLocked(e.target.checked)}
+                    className="rounded w-4 h-4"
+                  />
+                  <div>
+                    <p className={`${textStyles.body} font-medium text-blue-900 dark:text-blue-100`}>
+                      Lock weights from auto-updates
+                    </p>
+                    <p className={`${textStyles.bodySmall} text-blue-700 dark:text-blue-300`}>
+                      When enabled, your weights won't change automatically as you swipe
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              {/* Weight Sliders */}
+              <div className="space-y-4 mb-4">
+                {/* Distance Weight */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`${textStyles.bodySmall} text-gray-600 dark:text-gray-400`}>
+                      📍 Distance from your location
+                    </label>
+                    <span className={`${textStyles.body} font-medium`}>{weightDistance}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={weightDistance}
+                    onChange={(e) => setWeightDistance(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                  />
+                </div>
+
+                {/* Amenities Weight */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`${textStyles.bodySmall} text-gray-600 dark:text-gray-400`}>
+                      🌟 Amenities match
+                    </label>
+                    <span className={`${textStyles.body} font-medium`}>{weightAmenities}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={weightAmenities}
+                    onChange={(e) => setWeightAmenities(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                  />
+                </div>
+
+                {/* Quality Weight */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`${textStyles.bodySmall} text-gray-600 dark:text-gray-400`}>
+                      📸 Listing quality (photos & description)
+                    </label>
+                    <span className={`${textStyles.body} font-medium`}>{weightQuality}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={weightQuality}
+                    onChange={(e) => setWeightQuality(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                  />
+                </div>
+
+                {/* Rating Weight */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className={`${textStyles.bodySmall} text-gray-600 dark:text-gray-400`}>
+                      ⭐ User ratings
+                    </label>
+                    <span className={`${textStyles.body} font-medium`}>{weightRating}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={weightRating}
+                    onChange={(e) => setWeightRating(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-indigo-600"
+                  />
+                </div>
+
+                {/* Quick Action Buttons */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleEqualSplit}
+                    type="button"
+                    className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                  >
+                    Equal Split (25% each)
+                  </button>
+                  <button
+                    onClick={handleResetToDefaults}
+                    type="button"
+                    className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+                  >
+                    Reset to Defaults
+                  </button>
+                </div>
+
+                {/* Total Display */}
+                <div className={`flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700 ${
+                  weightDistance + weightAmenities + weightQuality + weightRating === 100
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-red-600 dark:text-red-400'
+                }`}>
+                  <span className={`${textStyles.body} font-medium`}>Total:</span>
+                  <span className={`${textStyles.body} font-bold`}>
+                    {weightDistance + weightAmenities + weightQuality + weightRating}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Success/Error Messages */}
+              {weightsSaveSuccess && (
+                <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className={`${textStyles.body} text-green-800 dark:text-green-200`}>
+                    ✓ Weights saved successfully!
+                  </p>
+                </div>
+              )}
+
+              {weightsError && (
+                <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-400 dark:border-red-700 rounded-lg">
+                  <p className={`${textStyles.body} text-red-800 dark:text-red-200`}>
+                    {weightsError}
+                  </p>
+                </div>
+              )}
+
+              {/* Save Button */}
+              <button
+                onClick={handleSaveWeights}
+                disabled={isSavingWeights || weightDistance + weightAmenities + weightQuality + weightRating !== 100}
+                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSavingWeights ? "Saving..." : "Save Weights"}
+              </button>
             </div>
 
             {/* Success Message */}
