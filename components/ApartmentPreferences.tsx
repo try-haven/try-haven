@@ -7,6 +7,7 @@ import { textStyles, buttonStyles, containerStyles, layoutStyles, inputStyles } 
 interface ScoringWeights {
   distance: number;
   amenities: number;
+  propertyFeatures: number;
   quality: number;
   rating: number;
 }
