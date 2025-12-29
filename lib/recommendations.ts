@@ -15,6 +15,7 @@ interface LearnedPreferences {
   preferredAmenities?: Record<string, number>; // Amenity -> weight (stored as Record for database)
   avgImageCount?: number; // Average number of images in liked listings
   avgDescriptionLength?: number; // Average description length in liked listings
+  avgSqft?: number; // Median sqft from liked listings
   updatedAt?: string; // ISO timestamp of last update
   mlModel?: ModelWeights; // ML model weights for personalized predictions
 }
@@ -24,6 +25,7 @@ interface LearnedPreferencesInternal {
   preferredAmenities?: Map<string, number>; // Amenity -> frequency in liked listings (internal use)
   avgImageCount?: number; // Average number of images in liked listings
   avgDescriptionLength?: number; // Average description length in liked listings
+  avgSqft?: number; // Median sqft from liked listings
 }
 
 interface UserPreferences {
@@ -103,19 +105,12 @@ export function extractAmenities(listing: ApartmentListing | NYCApartmentListing
 }
 
 /**
- * Score square footage with bonus for ideal range (800-1200 sqft)
+ * Score square footage (normalized, will be personalized with learned preferences)
  */
 function scoreSqft(sqft: number): number {
   const minSqft = 300;
   const maxSqft = 2500;
-  const normalized = Math.max(0, Math.min(1, (sqft - minSqft) / (maxSqft - minSqft)));
-
-  // Bonus for ideal range (800-1200 sqft)
-  if (sqft >= 800 && sqft <= 1200) {
-    return Math.min(1.0, normalized + 0.2);
-  }
-
-  return normalized;
+  return Math.max(0, Math.min(1, (sqft - minSqft) / (maxSqft - minSqft)));
 }
 
 /**
@@ -222,11 +217,17 @@ function learnFromSwipeHistory(
   const avgImageCount = imageCounts.length > 0 ? median(imageCounts) : undefined;
   const avgDescriptionLength = descriptionLengths.length > 0 ? Math.round(median(descriptionLengths)) : undefined;
 
+  // Learn sqft preference from liked listings
+  const nycLikedListings = likedListings.filter((l): l is NYCApartmentListing => 'sqft' in l);
+  const sqfts = nycLikedListings.map((l) => l.sqft);
+  const avgSqft = sqfts.length > 0 ? Math.round(median(sqfts)) : undefined;
+
   // Return learned preferences
   return {
     preferredAmenities: amenityFrequency,
     avgImageCount,
     avgDescriptionLength,
+    avgSqft,
   };
 }
 
@@ -411,7 +412,16 @@ function calculateMatchScore(
   if ('sqft' in listing && 'yearBuilt' in listing) {
     const nycListing = listing as NYCApartmentListing;
 
-    const sqftScore = scoreSqft(nycListing.sqft);
+    // Sqft scoring - use learned preference if available
+    let sqftScore: number;
+    if (learnedPreferences.avgSqft && learnedPreferences.avgSqft > 0) {
+      const sqftDiff = Math.abs(nycListing.sqft - learnedPreferences.avgSqft);
+      sqftScore = Math.max(0, 1 - sqftDiff / learnedPreferences.avgSqft);
+    } else {
+      sqftScore = scoreSqft(nycListing.sqft);
+    }
+
+    // Building age and renovation use fixed heuristics (more objective)
     const buildingAgeScore = scoreBuildingAge(nycListing.yearBuilt);
     const renovationScore = scoreRenovation(nycListing.renovationYear, nycListing.yearBuilt);
 

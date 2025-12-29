@@ -262,6 +262,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
               preferredAmenities: profile.learned_preferred_amenities || {},
               avgImageCount: profile.learned_avg_image_count,
               avgDescriptionLength: profile.learned_avg_description_length,
+              avgSqft: profile.learned_avg_sqft,
               updatedAt: profile.learned_preferences_updated_at,
             },
           },
@@ -640,6 +641,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           learned_preferred_amenities: learned.preferredAmenities || {},
           learned_avg_image_count: learned.avgImageCount ?? null,
           learned_avg_description_length: learned.avgDescriptionLength ?? null,
+          learned_avg_sqft: learned.avgSqft ?? null,
           learned_preferences_updated_at: learned.updatedAt ?? null,
         })
         .eq('id', user.id);
