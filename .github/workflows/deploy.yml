@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   build:
+    # Only run in the main haven repo, not the Vercel sync repo
+    if: github.repository == 'try-haven/haven'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
