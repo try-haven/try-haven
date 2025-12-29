@@ -20,5 +20,5 @@ jobs:
 
       - name: Push to try-haven main
         run: |
-          git remote add vercel https://${{ secrets.VERCEL_SYNC_TOKEN }}@github.com/try-haven/try-haven.git
+          git remote add vercel https://x-access-token:${{ secrets.VERCEL_SYNC_TOKEN }}@github.com/try-haven/try-haven.git
           git push vercel dev:main --force
