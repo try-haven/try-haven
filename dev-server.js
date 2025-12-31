@@ -17,7 +17,7 @@ devServer.stdout.on('data', (data) => {
     customMessageShown = true;
     // Print custom message with the correct URL
     console.log('\n  ▲ Next.js ' + require('next/package.json').version);
-    console.log('  - Local:        \x1b[36mhttp://localhost:3000/haven\x1b[0m\n');
+    console.log('  - Local:        \x1b[36mhttp://localhost:3000\x1b[0m\n');
   } else if (!output.includes('Local:') && !output.includes('- Network:')) {
     // Print other messages as normal (but skip the original Local/Network URLs)
     process.stdout.write(data);

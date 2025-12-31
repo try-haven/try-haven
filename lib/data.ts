@@ -7,6 +7,49 @@ export interface Review {
     date: string;
 }
 
+// Binary amenity structure for NYC listings
+export interface NYCAmenities {
+    washerDryerInUnit: boolean;
+    washerDryerInBuilding: boolean;
+    dishwasher: boolean;
+    ac: boolean;
+    pets: boolean;
+    fireplace: boolean;
+    gym: boolean;
+    parking: boolean;
+    pool: boolean;
+    outdoorArea: string | null; // "Balcony", "Patio", "Garden", etc.
+    view: string | null; // "City", "Park", "Water", "Other", etc.
+}
+
+// NYC-specific listing type with binary amenities
+export interface NYCApartmentListing {
+    id: string;
+    unitId: number;
+    managerId: number;
+    title: string;
+    address: string;
+    state: string;
+    city: string;
+    neighborhood: string;
+    latitude?: number;
+    longitude?: number;
+    price: number;
+    dateListedOnDB: string; // Database listing date
+    dateAvailable: string;
+    bedrooms: number;
+    bathrooms: number;
+    sqft: number;
+    yearBuilt: number;
+    renovationYear: number | null;
+    amenities: NYCAmenities; // Binary amenities object
+    images: string[]; // Will need to populate or use placeholders
+    description: string; // Will need to generate or populate
+    averageRating?: number;
+    totalRatings?: number;
+    reviews?: Review[];
+}
+
 export interface ApartmentListing {
     id: string;
     title: string;

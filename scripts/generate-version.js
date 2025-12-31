@@ -2,10 +2,12 @@ const fs = require('fs');
 const path = require('path');
 
 // Generate a version file with timestamp and git commit hash
+// Supports both GitHub Actions and Vercel environment variables
 const version = {
   buildId: Date.now().toString(),
   timestamp: new Date().toISOString(),
-  commit: process.env.GITHUB_SHA || 'local-dev',
+  commit: process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA || 'local-dev',
+  branch: process.env.VERCEL_GIT_COMMIT_REF || process.env.GITHUB_REF_NAME || 'unknown',
 };
 
 const publicDir = path.join(process.cwd(), 'public');

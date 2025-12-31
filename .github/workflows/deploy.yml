@@ -42,6 +42,7 @@ jobs:
         run: npm run build
         env:
           NODE_ENV: production
+          DEPLOY_TARGET: github-pages
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 

@@ -36,6 +36,8 @@ Haven is a web-based apartment search application that makes finding your next h
   - User type selection (Searcher vs Manager)
   - Address input with autocomplete and interactive map
   - Commute preference selection (Car, Public Transit, Walk, Bike)
+  - Advanced filters: View type (City, Water, Park, Garden, Mountain, Skyline)
+  - Neighborhood selection (18 NYC neighborhoods)
   - Smooth transitions between screens
 
 - **Swipeable Card Stack**
@@ -44,6 +46,13 @@ Haven is a web-based apartment search application that makes finding your next h
   - Like/Pass buttons with hover effects
   - Swipe animations with visual feedback (LIKE/NOPE overlays)
   - Image carousel for multiple listing photos
+  - Rich listing cards with:
+    - Distance from your location
+    - Neighborhood badges
+    - View type indicators
+    - Pet-friendly status
+    - Building information (year built, renovation year)
+    - Copyable address without triggering swipe
   - Progress indicator showing current position
   - Share listing functionality
   - Unique user tracking (one action per user per listing)
@@ -87,9 +96,10 @@ Haven is a web-based apartment search application that makes finding your next h
   - Create new listings with:
     - Title, address, price, bedrooms, bathrooms, sqft
     - Multiple image URLs
-    - Amenities (comma-separated)
+    - Amenities (checkbox selection for all 11 amenity types)
     - Availability date
     - Description
+  - Auto-sync to both legacy and NYC listings tables
   - Edit existing listings with change tracking
   - Delete listings with confirmation
   - Preview listings before publishing
@@ -134,25 +144,88 @@ Haven is a web-based apartment search application that makes finding your next h
   - Display change markers on trends chart
   - Cross-reference changes with engagement metrics
 
+### User Profile & Customization ✅
+
+- **Weight Customization**
+  - Manual control over scoring weights (Distance, Amenities, Quality, Rating)
+  - Real-time total display with color-coded feedback (green = 100%, red ≠ 100%)
+  - Quick action buttons:
+    - **Equal Split** - Instantly set all weights to 25% each
+    - **Reset to Defaults** - Return to recommended weights (40/35/15/10)
+  - Lock weights to prevent auto-updates from ML training
+  - Save button disabled until weights sum to 100%
+
+- **Profile Management**
+  - View and edit account information
+  - Update preferences (address, price range, bedrooms, bathrooms)
+  - View type and neighborhood filters
+  - Account reset (clears all data and preferences)
+  - Account deletion (permanent, cannot be undone)
+
 ### Personalization Engine 🎯
 
-Haven features a sophisticated, multi-stage recommendation system that combines explicit user preferences with behavioral learning to deliver highly personalized apartment suggestions. The system is designed to be intelligent, performant, and privacy-preserving.
+Haven features a sophisticated, **ML-powered** recommendation system that combines explicit user preferences with behavioral learning to deliver highly personalized apartment suggestions. The system uses **TensorFlow.js** for client-side ML to automatically optimize scoring weights based on your swipe behavior.
 
-#### What's Learned from Your Swipes (Currently Active)
-- ✅ **Amenity preferences** - Pool, gym, parking, pet-friendly, etc. (weighted by like vs. dislike ratio)
-- ✅ **Quality preferences** - Preferred number of photos and description length
-- ✅ **Location scoring** - Distance-based scoring from your preferred address
+#### How It Works
+
+**Two-Stage Personalization:**
+1. **Hard Filters** - Must-match requirements (price, bedrooms, bathrooms, view, neighborhood)
+2. **ML-Optimized Scoring** - TensorFlow.js model learns optimal weights from your swipes
+
+**What the ML Model Does:**
+- ✅ **Trains on your swipes** - Every 10 swipes, retrains to learn your preferences
+- ✅ **Optimizes scoring weights** - Automatically adjusts Distance/Amenities/Quality/Rating weights
+- ✅ **Feature importance analysis** - Analyzes 18 features to determine what matters most to you
+- ✅ **Suggests optimal weights** - Updates your scoring weights unless locked
+
+#### What's Learned from Your Swipes (ML-Based)
+- ✅ **Optimal scoring weights** - Automatically adjusts Distance (default 40%), Amenities (35%), Quality (15%), Rating (10%)
+- ✅ **Amenity preferences** - Learns which amenities you care about from swipe patterns
+- ✅ **Quality preferences** - Learns preferred number of photos and description length
+- ✅ **Distance sensitivity** - Learns how much location matters to you
 
 #### What's NOT Learned (Must Be Explicitly Set)
-- ⚠️ **Price range** - Must be set in preferences (not inferred from swipes)
-- ⚠️ **Bedrooms/Bathrooms** - Must be set in preferences (not inferred from swipes)
-- ⚠️ **Square footage** - Not used for filtering or scoring
+- ⚠️ **Price range** - Must be set in preferences (hard filter)
+- ⚠️ **Bedrooms/Bathrooms** - Must be set in preferences (hard filter)
+- ⚠️ **View type** - Optional filter for specific view preferences (City, Water, Park, Garden, Mountain, Skyline)
+- ⚠️ **Neighborhoods** - Optional filter for specific NYC neighborhoods
 
-**Future Enhancements:**
+**ML Architecture:**
+- **Model**: Logistic regression (18 features → binary classification)
+- **Training**: Every 10 swipes with Adam optimizer
+- **Features**: Price, beds, baths, sqft, building age, 9 amenities, outdoor area, view, distance
+- **Weight Suggestion**: Extracts feature importances → suggests optimal scoring weights
+- **User Control**: Can lock weights to prevent auto-updates
 
-1. **Learned Price/Bedroom/Bathroom Fallbacks:** If we want the system to learn price, bedroom, and bathroom preferences from swipe behavior and use them as fallbacks when users haven't set explicit values, this would need to be implemented. Currently, these are treated as hard requirements that users must specify upfront.
+---
 
-2. **Hybrid Amenity Preferences (Upfront + Learning):** Currently, amenity preferences are only learned from swipe behavior (requires 5+ swipes). A hybrid approach could allow users to select initial amenity preferences during onboarding (checkboxes for Pool, Gym, Parking, Pet-friendly, etc.), then continue refining these preferences based on actual swipe behavior. This would give new users immediate personalization while still benefiting from behavioral learning over time.
+## NYC Listings Dataset 🗽
+
+Haven now features a comprehensive dataset of **200 real NYC apartment listings** with rich metadata:
+
+### Dataset Features
+- **Geographic Coverage**: All major NYC neighborhoods (Manhattan, Brooklyn, Queens, Bronx, Staten Island)
+- **Binary Amenities**: 9 standardized amenities (washer/dryer in-unit, dishwasher, AC, pets, fireplace, gym, parking, pool, balcony)
+- **Enhanced Metadata**:
+  - Outdoor area types (Patio, Balcony, Terrace, Rooftop, None)
+  - View types (City, Water, Park, Garden, Mountain, Skyline, None)
+  - Building age and renovation year
+  - State, city, and neighborhood
+- **Rich Content**:
+  - Auto-generated descriptions (template-based, varied)
+  - Curated apartment images from Pexels (50 high-quality photos)
+  - Realistic pricing and specifications
+
+### Data Generation Scripts
+- **`scripts/generate-listing-images.js`** - Populates images column with curated Pexels photos
+- **`scripts/generate-descriptions.js`** - Creates varied, realistic apartment descriptions
+- **Database migrations** in `supabase-*.sql` files for schema updates
+
+### Data Quality
+- All listings geocoded with latitude/longitude
+- Consistent data types (amenities as numeric 0/1, bedrooms as integer)
+- No duplicates or "None" values in amenity lists
+- Manager ID properly tracked for manager-created listings
 
 ---
 
@@ -358,29 +431,68 @@ ALTER TABLE profiles ADD COLUMN
   bathrooms_min NUMERIC,
   bathrooms_max NUMERIC,
   min_rating NUMERIC,
-  weight_distance INTEGER,       -- Default 40 (40% of total score)
-  weight_amenities INTEGER,      -- Default 35 (35% of total score)
-  weight_quality INTEGER,        -- Default 15 (15% of total score)
-  weight_rating INTEGER,         -- Default 10 (10% of total score)
+  required_view JSONB,           -- ["City", "Water", "Park"] - Hard filter for view types
+  required_neighborhoods JSONB,  -- ["Manhattan", "Brooklyn"] - Hard filter for neighborhoods
+  weight_distance INTEGER,       -- Default 40 (40% of total score) - User customizable
+  weight_amenities INTEGER,      -- Default 35 (35% of total score) - User customizable
+  weight_quality INTEGER,        -- Default 15 (15% of total score) - User customizable
+  weight_rating INTEGER,         -- Default 10 (10% of total score) - User customizable
+  weights_locked BOOLEAN,        -- Whether to prevent auto-weight updates
 
   -- Learned preferences (auto-calculated from swipe behavior)
-  -- Note: Sqft preferences were removed as they were not being used
   learned_preferred_amenities JSONB,  -- {"pool": 15.48, "gym": 5.0, ...}
   learned_avg_image_count NUMERIC,    -- Average image count in liked listings
   learned_avg_description_length INTEGER,  -- Average description length in liked listings
   learned_preferences_updated_at TIMESTAMP;
 
-  -- Removed columns (not implemented, dead code):
-  -- learned_price_min, learned_price_max
-  -- learned_bedrooms_min, learned_bedrooms_max
-  -- learned_bathrooms_min, learned_bathrooms_max
-  -- learned_sqft_min, learned_sqft_max
-  -- These would need to be implemented if we want fallback learning in the future
-
--- listings table
+-- listings table (legacy - still used for backward compatibility)
 ALTER TABLE listings ADD COLUMN
   latitude NUMERIC,              -- Geocoded latitude of listing address
   longitude NUMERIC;             -- Geocoded longitude of listing address
+
+-- listings_nyc table (primary data source)
+CREATE TABLE listings_nyc (
+  idx SERIAL PRIMARY KEY,
+  "Unit ID" INTEGER,
+  "Manager ID" TEXT,
+  "Title" TEXT,
+  "State" TEXT,
+  "City" TEXT,
+  "Address" TEXT,
+  "Neighborhood" TEXT,
+  "Bedrooms" INTEGER,            -- Numeric type (not text)
+  "Bathrooms" NUMERIC,
+  "Price" INTEGER,
+  "Sqft" INTEGER,
+  "Year Built" INTEGER,
+  "Renovation Year" INTEGER,
+  "Latitude" NUMERIC,
+  "Longitude" NUMERIC,
+  "Rating" NUMERIC,
+  "Review Count" INTEGER,
+
+  -- Binary amenities (0 or 1)
+  "Washer/Dryer in unit" INTEGER,
+  "Washer/Dryer in building" INTEGER,
+  "Dishwasher" INTEGER,
+  "AC" INTEGER,
+  "Pets" INTEGER,
+  "Fireplace" INTEGER,
+  "Gym" INTEGER,
+  "Parking" INTEGER,
+  "Pool" INTEGER,
+
+  -- Enhanced metadata
+  "Outdoor Area" TEXT,           -- Patio, Balcony, Terrace, Rooftop, None
+  "View" TEXT,                   -- City, Water, Park, Garden, Mountain, Skyline, None
+  "images" JSONB,                -- Array of image URLs
+  "description" TEXT             -- Auto-generated description
+);
+
+-- Indexes for performance
+CREATE INDEX idx_listings_nyc_neighborhood ON listings_nyc USING gin("Neighborhood" gin_trgm_ops);
+CREATE INDEX idx_listings_nyc_price ON listings_nyc("Price");
+CREATE INDEX idx_listings_nyc_bedrooms ON listings_nyc("Bedrooms");
 ```
 
 ### Update Strategy
@@ -507,13 +619,21 @@ This design ensures:
 
 | File | Purpose |
 |------|---------|
-| `lib/recommendations.ts` | Core learning and scoring algorithms |
+| `lib/ml-model.ts` | TensorFlow.js model training and weight optimization |
+| `lib/ml-features.ts` | Feature engineering (18-feature vector extraction) |
+| `lib/recommendations.ts` | Core scoring algorithms, behavioral learning, and hard filters |
 | `lib/geocoding.ts` | Geocoding utilities and distance calculation |
-| `lib/listings.ts` | Listing CRUD operations with geocoding |
-| `app/swipe/page.tsx` | Swipe interface with personalization logic |
-| `contexts/UserContext.tsx` | User profile, learned preferences, geocoded address storage |
+| `lib/listings.ts` | Listing CRUD operations with geocoding, NYC data conversion |
+| `lib/data.ts` | Type definitions for NYC listings and amenities |
+| `app/swipe/page.tsx` | Swipe interface with ML training triggers |
+| `app/profile/page.tsx` | User profile with weight customization UI |
+| `contexts/UserContext.tsx` | User profile, ML-suggested weights, learned preferences storage |
+| `contexts/ListingsContext.tsx` | NYC listings data provider |
 | `contexts/LikedListingsContext.tsx` | Liked listings management with localStorage sync |
-| `components/SwipeableCard.tsx` | Match score display, Top Pick badges |
+| `components/SwipeableCard.tsx` | Rich listing cards with distance, view, neighborhood badges |
+| `components/ApartmentPreferences.tsx` | Onboarding with view/neighborhood/amenity filters |
+| `scripts/generate-listing-images.js` | Populate NYC listings with Pexels photos |
+| `scripts/generate-descriptions.js` | Generate varied apartment descriptions |
 | `scripts/seed-listings.ts` | Database seeding with geocoding |
 | `scripts/check-geocoding.ts` | Geocoding status verification |
 | `scripts/clear-listings.ts` | Database cleanup utility |
@@ -615,6 +735,7 @@ Alice finds her perfect apartment: 1br, $2,200, parking included, in Mission Dis
 - **Animations**: Framer Motion
 - **Maps**: Leaflet & React Leaflet
 - **Charts**: Recharts (for analytics visualization)
+- **Machine Learning**: TensorFlow.js (client-side weight optimization)
 - **Language**: TypeScript
 - **Testing**: Vitest + React Testing Library
 - **Deployment**: Vercel-ready
@@ -623,7 +744,7 @@ Alice finds her perfect apartment: 1br, $2,200, parking included, in Mission Dis
 - **Authentication**: Supabase Auth
 - **Geocoding**: OpenStreetMap Nominatim API (free, open-source)
 - **Distance Calculation**: Haversine formula implementation
-- **AI Services** (Future): HuggingFace Inference API (free tier)
+- **Image Hosting**: Pexels (curated apartment photos)
 
 ## 🏗️ Architecture & System Design
 
@@ -804,6 +925,18 @@ Deletes all listings from the database (useful before re-seeding).
 npm run reset-user test@gmail.com
 ```
 Resets user preferences, learned personalization, and swipe history for testing.
+
+#### Generate NYC Listing Images
+```bash
+node scripts/generate-listing-images.js
+```
+Populates the `images` column in `listings_nyc` table with curated apartment photos from Pexels. Requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local` to bypass RLS.
+
+#### Generate NYC Listing Descriptions
+```bash
+node scripts/generate-descriptions.js
+```
+Creates varied, realistic apartment descriptions for NYC listings based on property features (amenities, neighborhood, views, etc.).
 
 ### Build for Production
 

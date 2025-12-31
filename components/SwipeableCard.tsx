@@ -2,17 +2,19 @@
 
 import { motion, useMotionValue, useTransform, PanInfo, animate } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
-import { ApartmentListing, Review } from "@/lib/data";
+import { ApartmentListing, NYCApartmentListing, Review } from "@/lib/data";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useUser } from "@/contexts/UserContext";
 import { textStyles, badgeStyles } from "@/lib/styles";
+import { extractAmenities } from "@/lib/recommendations";
+import { calculateDistance } from "@/lib/geocoding";
 
 // Dynamically import the map component to avoid SSR issues
 const MapView = dynamic(() => import("./MapView"), { ssr: false });
 
 interface SwipeableCardProps {
-  listing: ApartmentListing;
+  listing: ApartmentListing | NYCApartmentListing;
   onSwipe: (direction: "left" | "right") => void;
   index: number;
   total: number;
@@ -23,6 +25,7 @@ interface SwipeableCardProps {
   scoreBreakdown?: {
     distance?: { score: number; percentage: number; label: string };
     amenities?: { score: number; percentage: number; label: string };
+    propertyFeatures?: { score: number; percentage: number; label: string };
     quality?: { score: number; percentage: number; label: string };
     rating?: { score: number; percentage: number; label: string };
   };
@@ -64,6 +67,16 @@ export default function SwipeableCard({
   } | null>(null);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
+
+  // Calculate distance if user has location set
+  const distance = user?.preferences?.latitude && user?.preferences?.longitude && listing.latitude && listing.longitude
+    ? calculateDistance(
+        user.preferences.latitude,
+        user.preferences.longitude,
+        listing.latitude,
+        listing.longitude
+      )
+    : null;
 
   // Load reviews from localStorage after mount (client-side only)
   useEffect(() => {
@@ -216,7 +229,8 @@ export default function SwipeableCard({
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const url = `${window.location.origin}/haven/listing?id=${listing.id}`;
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const url = `${window.location.origin}${basePath}/listing?id=${listing.id}`;
 
     if (user) {
       // Track share in metrics
@@ -309,7 +323,7 @@ export default function SwipeableCard({
             {!imageError && listing.images[imageIndex] ? (
               <Image
                 src={listing.images[imageIndex]}
-                alt={listing.title}
+                alt={`${listing.bedrooms} bedroom apartment at ${listing.address} - Image ${imageIndex + 1} of ${listing.images.length}`}
                 fill
                 className="object-cover"
                 priority={index === 0}
@@ -390,6 +404,7 @@ export default function SwipeableCard({
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.distance.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -401,6 +416,7 @@ export default function SwipeableCard({
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.amenities.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -408,10 +424,23 @@ export default function SwipeableCard({
                           <span>{Math.round(scoreBreakdown.amenities.score)}pts</span>
                         </div>
                       )}
+                      {scoreBreakdown.propertyFeatures && (
+                        <div className={`flex items-center justify-between text-xs ${scoreBreakdown.propertyFeatures.score === Math.max(
+                          scoreBreakdown.distance?.score || 0,
+                          scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
+                          scoreBreakdown.quality?.score || 0,
+                          scoreBreakdown.rating?.score || 0
+                        ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                          <span>🏗️ Features: {scoreBreakdown.propertyFeatures.label}</span>
+                          <span>{Math.round(scoreBreakdown.propertyFeatures.score)}pts</span>
+                        </div>
+                      )}
                       {scoreBreakdown.quality && (
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.quality.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -423,6 +452,7 @@ export default function SwipeableCard({
                         <div className={`flex items-center justify-between text-xs ${scoreBreakdown.rating.score === Math.max(
                           scoreBreakdown.distance?.score || 0,
                           scoreBreakdown.amenities?.score || 0,
+                          scoreBreakdown.propertyFeatures?.score || 0,
                           scoreBreakdown.quality?.score || 0,
                           scoreBreakdown.rating?.score || 0
                         ) ? 'font-bold text-indigo-600 dark:text-indigo-400' : 'text-gray-600 dark:text-gray-400'}`}>
@@ -532,7 +562,13 @@ export default function SwipeableCard({
                   )}
                 </button>
               </div>
-              <p className="text-gray-600 dark:text-gray-300 text-xs">{listing.address}</p>
+              <p
+                className="text-gray-600 dark:text-gray-300 text-xs select-text cursor-text"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {listing.address}
+              </p>
               <div className="flex items-center gap-2 mt-2">
                 <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                   ${listing.price.toLocaleString()}<span className="text-sm text-gray-500 dark:text-gray-400">/mo</span>
@@ -561,11 +597,49 @@ export default function SwipeableCard({
               <span>{listing.sqft.toLocaleString()} sqft</span>
             </div>
 
-            <p className="text-xs text-gray-700 dark:text-gray-300 mb-3 line-clamp-3">{listing.description}</p>
+            {/* Additional Details: Distance, Neighborhood, View, Pet Friendly */}
+            <div className="flex flex-wrap gap-2 mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
+              {distance !== null && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  {distance.toFixed(1)} mi away
+                </span>
+              )}
+              {'neighborhood' in listing && listing.neighborhood && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                  </svg>
+                  {listing.neighborhood}
+                </span>
+              )}
+              {'amenities' in listing && !Array.isArray(listing.amenities) && listing.amenities.view && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  {listing.amenities.view} View
+                </span>
+              )}
+              {'amenities' in listing && !Array.isArray(listing.amenities) && listing.amenities.pets && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-medium">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Pet Friendly
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-gray-700 dark:text-gray-300 mb-3">{listing.description}</p>
 
             {/* Amenities */}
             <div className="flex flex-wrap gap-1.5 mb-3">
-              {listing.amenities.slice(0, showAllAmenities ? listing.amenities.length : 3).map((amenity, i) => (
+              {extractAmenities(listing).slice(0, showAllAmenities ? extractAmenities(listing).length : 3).map((amenity, i) => (
                 <span
                   key={i}
                   className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs"
@@ -573,7 +647,7 @@ export default function SwipeableCard({
                   {amenity}
                 </span>
               ))}
-              {listing.amenities.length > 3 && (
+              {extractAmenities(listing).length > 3 && (
                 <span
                   onClick={(e) => {
                     e.stopPropagation();
@@ -582,13 +656,37 @@ export default function SwipeableCard({
                   onPointerDown={(e) => e.stopPropagation()}
                   className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
-                  {showAllAmenities ? 'Show less' : `+${listing.amenities.length - 3}`}
+                  {showAllAmenities ? 'Show less' : `+${extractAmenities(listing).length - 3}`}
                 </span>
               )}
             </div>
 
+            {/* Building Info: Year Built & Renovated (NYC listings only) */}
+            {'yearBuilt' in listing && (
+              <div className="flex flex-wrap gap-2 mb-3 text-xs text-gray-600 dark:text-gray-400">
+                {listing.yearBuilt && (
+                  <span className="inline-flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    Built {listing.yearBuilt}
+                  </span>
+                )}
+                {listing.renovationYear && (
+                  <span className="inline-flex items-center gap-1">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                    Renovated {listing.renovationYear}
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Available {new Date(listing.availableFrom).toLocaleDateString("en-US", {
+              Available {new Date(
+                'availableFrom' in listing ? listing.availableFrom : listing.dateAvailable
+              ).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
                 year: "numeric",

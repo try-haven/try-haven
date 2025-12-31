@@ -2,20 +2,20 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { ApartmentListing } from "@/lib/data";
+import { ApartmentListing, NYCApartmentListing } from "@/lib/data";
 import SwipeableCard from "./SwipeableCard";
 import AdOverlay from "./AdOverlay";
 import AdCard from "./AdCard";
 import { useUser } from "@/contexts/UserContext";
 
 // Extended listing type with recommendation scores
-interface ListingWithScore extends ApartmentListing {
+type ListingWithScore = (ApartmentListing | NYCApartmentListing) & {
   matchScore?: number;
   isTopPick?: boolean;
-}
+};
 
 interface CardStackProps {
-  listings: (ApartmentListing | ListingWithScore)[];
+  listings: (ApartmentListing | NYCApartmentListing | ListingWithScore)[];
   onLikedChange: (likedIds: Set<string>) => void;
   initialLikedIds?: Set<string>;
   onViewLiked?: () => void;
@@ -192,7 +192,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   // Sync completion state to parent component when all listings are completed
   useEffect(() => {
     // Calculate items array to get total count including ads
-    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing | NYCApartmentListing; adIndex?: number }> = [];
     let adCount = 0;
     listings.forEach((listing, idx) => {
       items.push({ type: "listing", data: listing });
@@ -209,7 +209,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
   const handleSwipe = (direction: "left" | "right") => {
     // Calculate items array
-    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing | NYCApartmentListing; adIndex?: number }> = [];
     let adCount = 0;
 
     listings.forEach((listing, idx) => {
@@ -348,7 +348,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
   const handleLike = () => {
     // Check if current item is an ad
-    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing | NYCApartmentListing; adIndex?: number }> = [];
     let adCount = 0;
 
     listings.forEach((listing, idx) => {
@@ -374,7 +374,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
 
   const handlePass = () => {
     // Check if current item is an ad
-    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+    const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing | NYCApartmentListing; adIndex?: number }> = [];
     let adCount = 0;
 
     listings.forEach((listing, idx) => {
@@ -417,7 +417,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Calculate items array
-      const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+      const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing | NYCApartmentListing; adIndex?: number }> = [];
       let adCount = 0;
 
       listings.forEach((listing, idx) => {
@@ -470,7 +470,7 @@ export default function CardStack({ listings, onLikedChange, initialLikedIds = n
   // Calculate items array to determine total (moved before useEffect)
   const calculateItems = useMemo(() => {
     return () => {
-      const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing; adIndex?: number }> = [];
+      const items: Array<{ type: "listing" | "ad"; data?: ApartmentListing | NYCApartmentListing; adIndex?: number }> = [];
       let adCount = 0;
       listings.forEach((listing, idx) => {
         items.push({ type: "listing", data: listing });

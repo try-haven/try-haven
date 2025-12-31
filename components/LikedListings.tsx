@@ -1,19 +1,20 @@
 "use client";
 
-import { ApartmentListing, Review } from "@/lib/data";
+import { ApartmentListing, NYCApartmentListing, Review } from "@/lib/data";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import SharedNavbar from "./SharedNavbar";
 import { useUser } from "@/contexts/UserContext";
 import { generateAnonymousNickname } from "@/lib/nicknames";
 import { getListingReviews, addReview } from "@/lib/listings";
+import { extractAmenities } from "@/lib/recommendations";
 import dynamic from "next/dynamic";
 
 // Dynamically import the map component to avoid SSR issues
 const MapView = dynamic(() => import("./MapView"), { ssr: false });
 
 interface LikedListingsProps {
-  likedListings: ApartmentListing[];
+  likedListings: (ApartmentListing | NYCApartmentListing)[];
   onBack: () => void;
   onRemoveLike: (listingId: string) => void;
   onBackToHome?: () => void;
@@ -23,7 +24,7 @@ interface LikedListingsProps {
 
 export default function LikedListings({ likedListings, onBack, onRemoveLike, onBackToHome, isLoading = false, likedCount = 0 }: LikedListingsProps) {
   const { logOut, hasReviewedListing, markListingAsReviewed, user } = useUser();
-  const [selectedListing, setSelectedListing] = useState<ApartmentListing | null>(null);
+  const [selectedListing, setSelectedListing] = useState<ApartmentListing | NYCApartmentListing | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
   const [imageError, setImageError] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -469,7 +470,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
               <div className="mb-6">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Amenities</h3>
                 <div className="flex flex-wrap gap-2">
-                  {selectedListing.amenities.map((amenity, i) => (
+                  {extractAmenities(selectedListing).map((amenity, i) => (
                     <span
                       key={i}
                       className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-sm font-medium"
@@ -483,7 +484,9 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
               <div className="pt-6 border-t border-gray-200 dark:border-gray-700 mb-6">
                 <p className="text-gray-600 dark:text-gray-300 mb-4">
                   <span className="font-semibold">Available from:</span>{" "}
-                  {new Date(selectedListing.availableFrom).toLocaleDateString("en-US", {
+                  {new Date(
+                    'availableFrom' in selectedListing ? selectedListing.availableFrom : selectedListing.dateAvailable
+                  ).toLocaleDateString("en-US", {
                     month: "long",
                     day: "numeric",
                     year: "numeric",
@@ -856,7 +859,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                   {listing.images[0] ? (
                     <Image
                       src={listing.images[0]}
-                      alt={listing.title}
+                      alt={`${listing.bedrooms} bedroom apartment at ${listing.address}`}
                       fill
                       className="object-cover"
                       unoptimized
@@ -895,7 +898,7 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                     <span>{listing.sqft.toLocaleString()} sqft</span>
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {listing.amenities.slice(0, 2).map((amenity, i) => (
+                    {extractAmenities(listing).slice(0, 2).map((amenity, i) => (
                       <span
                         key={i}
                         className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs"
@@ -903,9 +906,9 @@ export default function LikedListings({ likedListings, onBack, onRemoveLike, onB
                         {amenity}
                       </span>
                     ))}
-                    {listing.amenities.length > 2 && (
+                    {extractAmenities(listing).length > 2 && (
                       <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs">
-                        +{listing.amenities.length - 2}
+                        +{extractAmenities(listing).length - 2}
                       </span>
                     )}
                   </div>

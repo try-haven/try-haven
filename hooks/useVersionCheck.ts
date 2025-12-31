@@ -16,7 +16,9 @@ export function useVersionCheck() {
   const checkVersion = async () => {
     try {
       // Fetch version.json with cache-busting query param
-      const response = await fetch(`/haven/version.json?t=${Date.now()}`, {
+      // Use NEXT_PUBLIC_BASE_PATH for deployment compatibility (GitHub Pages vs Vercel)
+      const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+      const response = await fetch(`${basePath}/version.json?t=${Date.now()}`, {
         cache: 'no-cache',
       });
 

@@ -13,12 +13,14 @@ interface LearnedPreferences {
   preferredLocations?: string[]; // City/neighborhood keywords
   avgImageCount?: number;
   avgDescriptionLength?: number;
+  avgSqftByBedrooms?: Record<number, number>; // Bedroom count -> median sqft
   updatedAt?: string;
 }
 
 export interface ScoringWeights {
   distance: number;   // 0-100 percentage
   amenities: number;  // 0-100 percentage
+  propertyFeatures: number;  // 0-100 percentage
   quality: number;    // 0-100 percentage
   rating: number;     // 0-100 percentage
 }
@@ -36,8 +38,11 @@ interface UserPreferences {
   ratingMin?: number;
   ratingMax?: number;
   requiredAmenities?: string[]; // Hard filter - listings must have these
+  requiredView?: string[]; // Hard filter - view types required
+  requiredNeighborhoods?: string[]; // Hard filter - specific neighborhoods
   // Scoring weights (customizable - defaults to 40/35/15/10)
   weights?: ScoringWeights;
+  weightsLocked?: boolean; // If true, ML model won't update weights
   // Learned preferences (automatically calculated from swipe behavior)
   learned?: LearnedPreferences;
 }
@@ -244,16 +249,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
             ratingMin: profile.rating_min,
             ratingMax: profile.rating_max,
             requiredAmenities: profile.required_amenities,
+            requiredView: profile.required_view,
+            requiredNeighborhoods: profile.required_neighborhoods,
             weights: {
-              distance: profile.weight_distance ?? 40,
-              amenities: profile.weight_amenities ?? 35,
+              distance: profile.weight_distance ?? 30,
+              amenities: profile.weight_amenities ?? 30,
+              propertyFeatures: profile.weight_property_features ?? 20,
               quality: profile.weight_quality ?? 15,
-              rating: profile.weight_rating ?? 10,
+              rating: profile.weight_rating ?? 5,
             },
+            weightsLocked: profile.weights_locked ?? false,
             learned: {
               preferredAmenities: profile.learned_preferred_amenities || {},
               avgImageCount: profile.learned_avg_image_count,
               avgDescriptionLength: profile.learned_avg_description_length,
+              avgSqftByBedrooms: profile.learned_avg_sqft_by_bedrooms,
               updatedAt: profile.learned_preferences_updated_at,
             },
           },
@@ -530,24 +540,32 @@ export function UserProvider({ children }: { children: ReactNode }) {
         console.log('[UserContext] Geocoded coords:', coords);
       }
 
-      // Prepare update data
-      const updateData = {
-        address: preferences.address,
+      // Prepare update data - use null instead of undefined to clear fields
+      const updateData: Record<string, any> = {
+        address: preferences.address || null,
         latitude: coords?.latitude || null,
         longitude: coords?.longitude || null,
-        commute_options: preferences.commute,
-        price_min: preferences.priceMin,
-        price_max: preferences.priceMax,
-        bedrooms: preferences.bedrooms,
-        bathrooms: preferences.bathrooms,
-        rating_min: preferences.ratingMin,
-        rating_max: preferences.ratingMax,
-        required_amenities: preferences.requiredAmenities,
-        weight_distance: preferences.weights?.distance,
-        weight_amenities: preferences.weights?.amenities,
-        weight_quality: preferences.weights?.quality,
-        weight_rating: preferences.weights?.rating,
+        commute_options: preferences.commute || null,
+        price_min: preferences.priceMin ?? null,
+        price_max: preferences.priceMax ?? null,
+        bedrooms: preferences.bedrooms || null,
+        bathrooms: preferences.bathrooms || null,
+        rating_min: preferences.ratingMin ?? null,
+        rating_max: preferences.ratingMax ?? null,
+        required_amenities: preferences.requiredAmenities || null,
+        required_view: preferences.requiredView || null,
+        required_neighborhoods: preferences.requiredNeighborhoods || null,
+        weight_distance: preferences.weights?.distance ?? null,
+        weight_amenities: preferences.weights?.amenities ?? null,
+        weight_property_features: preferences.weights?.propertyFeatures ?? null,
+        weight_quality: preferences.weights?.quality ?? null,
+        weight_rating: preferences.weights?.rating ?? null,
       };
+
+      // Only update weightsLocked if explicitly provided (don't overwrite with false)
+      if (preferences.weightsLocked !== undefined) {
+        updateData.weights_locked = preferences.weightsLocked;
+      }
 
       console.log('[UserContext] Updating database with:', updateData);
 
@@ -594,11 +612,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
           ratingMin: profile.rating_min,
           ratingMax: profile.rating_max,
           requiredAmenities: profile.required_amenities,
+          requiredView: profile.required_view,
+          requiredNeighborhoods: profile.required_neighborhoods,
           weights: {
-            distance: profile.weight_distance ?? 40,
-            amenities: profile.weight_amenities ?? 35,
+            distance: profile.weight_distance ?? 30,
+            amenities: profile.weight_amenities ?? 30,
+            propertyFeatures: profile.weight_property_features ?? 20,
             quality: profile.weight_quality ?? 15,
-            rating: profile.weight_rating ?? 10,
+            rating: profile.weight_rating ?? 5,
           },
           learned: user.preferences?.learned, // Keep existing learned preferences
         },
@@ -619,9 +640,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .update({
           learned_preferred_amenities: learned.preferredAmenities || {},
-          learned_avg_image_count: learned.avgImageCount,
-          learned_avg_description_length: learned.avgDescriptionLength,
-          learned_preferences_updated_at: new Date().toISOString(),
+          learned_avg_image_count: learned.avgImageCount ?? null,
+          learned_avg_description_length: learned.avgDescriptionLength ?? null,
+          learned_avg_sqft_by_bedrooms: learned.avgSqftByBedrooms ?? null,
+          learned_preferences_updated_at: learned.updatedAt ?? null,
         })
         .eq('id', user.id);
 
@@ -641,10 +663,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         ...user,
         preferences: {
           ...user.preferences,
-          learned: {
-            ...learned,
-            updatedAt: new Date().toISOString(),
-          },
+          learned: learned,
         },
       });
     } catch (error) {
