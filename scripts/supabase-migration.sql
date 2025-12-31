@@ -203,12 +203,13 @@ CREATE TRIGGER update_reviews_updated_at BEFORE UPDATE ON reviews
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, username, user_type)
+  INSERT INTO public.profiles (id, email, username, user_type, apartment_complex_name)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'username', NEW.email),
-    COALESCE(NEW.raw_user_meta_data->>'user_type', 'searcher')
+    COALESCE(NEW.raw_user_meta_data->>'user_type', 'searcher'),
+    NEW.raw_user_meta_data->>'apartment_complex_name'
   );
   RETURN NEW;
 END;

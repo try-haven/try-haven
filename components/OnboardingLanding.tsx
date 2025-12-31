@@ -21,6 +21,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [userType, setUserType] = useState<"searcher" | "manager">("searcher");
+  const [apartmentComplexName, setApartmentComplexName] = useState("");
   const [error, setError] = useState("");
   const [justSignedUp, setJustSignedUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -33,6 +34,28 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
     return null;
   }
 
+  // Helper function to validate manager email domain matches apartment complex name
+  const validateManagerEmail = (email: string, complexName: string): boolean => {
+    // Extract domain from email (e.g., "john@oaksapartments.com" -> "oaksapartments")
+    const emailParts = email.toLowerCase().split('@');
+    if (emailParts.length !== 2) return false;
+
+    const domain = emailParts[1].split('.')[0]; // Get the main domain part before TLD
+
+    // Normalize complex name: remove spaces, special chars, convert to lowercase
+    const normalizedComplex = complexName
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, ''); // Remove all non-alphanumeric characters
+
+    // Check if domain contains the normalized complex name or vice versa
+    // This handles cases like:
+    // - "The Oaks Apartments" -> "theoaksapartments" matches domain "oaksapartments"
+    // - "john@oaksapartments.com" matches "Oaks Apartments"
+    const domainClean = domain.replace(/[^a-z0-9]/g, '');
+
+    return domainClean.includes(normalizedComplex) || normalizedComplex.includes(domainClean);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -42,11 +65,27 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
         setError("Please fill in all fields");
         return;
       }
+      if (userType === "manager" && !apartmentComplexName.trim()) {
+        setError("Please enter your apartment complex name");
+        return;
+      }
       if (password.length < 6) {
         setError("Password must be at least 6 characters");
         return;
       }
-      const result = await signUp(email, username, password, userType);
+
+      // Validate manager email domain matches apartment complex name
+      if (userType === "manager") {
+        if (!validateManagerEmail(email, apartmentComplexName)) {
+          setError(
+            "Your email domain must match your apartment complex name for verification. " +
+            "If you're unable to use a matching email, please contact us at havenaptsearch@gmail.com to verify your account."
+          );
+          return;
+        }
+      }
+
+      const result = await signUp(email, username, password, userType, apartmentComplexName);
       if (result.success) {
         setJustSignedUp(true);
         onSignUp();
@@ -173,6 +212,24 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
                   required={isSignUp}
                 />
               </div>
+              {userType === "manager" && (
+                <div>
+                  <label className={inputStyles.label}>
+                    Apartment Complex Name
+                  </label>
+                  <input
+                    type="text"
+                    value={apartmentComplexName}
+                    onChange={(e) => setApartmentComplexName(e.target.value)}
+                    placeholder="e.g., The Oaks Apartments"
+                    className={inputStyles.standard}
+                    required
+                  />
+                  <p className={`${textStyles.helperWithMargin}`}>
+                    Your email domain must match your complex name for verification
+                  </p>
+                </div>
+              )}
               <div>
                 <label className={inputStyles.label}>
                   Username

@@ -277,7 +277,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, username: string, password: string, userType: UserType = "searcher"): Promise<{ success: boolean; error?: string }> => {
+  const signUp = async (email: string, username: string, password: string, userType: UserType = "searcher", apartmentComplexName?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // Check if username is already taken using RPC function (safer than direct SELECT)
       const { data: isAvailable, error: checkError } = await supabase
@@ -302,6 +302,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
           data: {
             username,
             user_type: userType,
+            apartment_complex_name: apartmentComplexName || null,
           },
         },
       });
