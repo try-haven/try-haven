@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { textStyles } from "@/lib/styles";
-import { ApartmentListing } from "@/lib/data";
+import { ApartmentListing, NYCApartmentListing } from "@/lib/data";
 import { useListings } from "@/contexts/ListingsContext";
 
 interface MetricEvent {
@@ -12,14 +12,6 @@ interface MetricEvent {
   type: 'view' | 'swipeRight' | 'swipeLeft' | 'share' | 'unlike' | 'review';
   userId?: string;
   rating?: number; // For review events
-}
-
-interface ListingChange {
-  listingId: string;
-  timestamp: number;
-  field: string;
-  oldValue: any;
-  newValue: any;
 }
 
 interface ListingTrendsChartProps {
@@ -194,17 +186,16 @@ export default function ListingTrendsChart({ listingId }: ListingTrendsChartProp
         };
       });
 
-    // Load price changes
-    const changesData = localStorage.getItem("haven_listing_changes");
-    const allChanges: ListingChange[] = changesData ? JSON.parse(changesData) : [];
-    const priceChanges = allChanges
-      .filter(c => c.listingId === listingId && c.field === 'price')
-      .sort((a, b) => a.timestamp - b.timestamp)
+    // Get price changes from listing (all-time history)
+    const nycListing = listing as NYCApartmentListing;
+    const priceHistory = nycListing.priceHistory || [];
+    const priceChanges = priceHistory
       .map(c => ({
-        timestamp: c.timestamp,
-        oldValue: c.oldValue,
-        newValue: c.newValue,
-      }));
+        timestamp: new Date(c.timestamp).getTime(),
+        oldValue: c.old_price,
+        newValue: c.new_price,
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp);
 
     // Build price history - start with the oldest price we know
     let initialPrice = currentPrice;

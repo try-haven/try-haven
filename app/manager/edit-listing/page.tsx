@@ -3,26 +3,19 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
-import { ApartmentListing } from "@/lib/data";
+import { NYCApartmentListing } from "@/lib/data";
 import { textStyles, inputStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import DarkModeToggle from "@/components/DarkModeToggle";
-import { getManagerListings, updateListing } from "@/lib/listings";
-
-interface ListingChange {
-  listingId: string;
-  timestamp: number;
-  field: string;
-  oldValue: any;
-  newValue: any;
-}
+import { getManagerListingsNYC, updateListingNYC } from "@/lib/listings";
+import { geocodeAddress } from "@/lib/geocoding";
 
 function EditListingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoggedIn, isManager } = useUser();
   const listingId = searchParams.get("id");
-  const [originalListing, setOriginalListing] = useState<ApartmentListing | null>(null);
+  const [originalListing, setOriginalListing] = useState<NYCApartmentListing | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     address: "",
@@ -30,13 +23,30 @@ function EditListingContent() {
     bedrooms: "",
     bathrooms: "",
     sqft: "",
+    yearBuilt: "",
+    renovationYear: "",
     description: "",
     availableFrom: "",
-    amenities: "",
     images: "",
+    outdoorArea: "None",
+    view: "None",
+  });
+  const [amenities, setAmenities] = useState({
+    washerDryerInUnit: false,
+    washerDryerInBuilding: false,
+    dishwasher: false,
+    ac: false,
+    pets: false,
+    fireplace: false,
+    gym: false,
+    parking: false,
+    pool: false,
   });
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [geocodingFailed, setGeocodingFailed] = useState(false);
+  const [originalAddress, setOriginalAddress] = useState("");
 
   useEffect(() => {
     // Redirect if not logged in or not a manager
@@ -53,25 +63,25 @@ function EditListingContent() {
     const loadListing = async () => {
       if (!listingId || !user) return;
 
-      const supabaseListings = await getManagerListings(user.id);
-      const supabaseListing = supabaseListings.find(l => l.id === listingId);
+      const nycListings = await getManagerListingsNYC(user.id);
+      const listing = nycListings.find(l => l.id === listingId);
 
-      if (supabaseListing) {
-        const listing: ApartmentListing = {
-          id: supabaseListing.id,
-          title: supabaseListing.title,
-          address: supabaseListing.address,
-          price: Number(supabaseListing.price),
-          bedrooms: supabaseListing.bedrooms,
-          bathrooms: supabaseListing.bathrooms,
-          sqft: supabaseListing.sqft,
-          images: supabaseListing.images || [],
-          amenities: supabaseListing.amenities || [],
-          description: supabaseListing.description,
-          availableFrom: supabaseListing.available_from,
-        };
-
+      if (listing) {
         setOriginalListing(listing);
+
+        // Set amenities checkboxes
+        setAmenities({
+          washerDryerInUnit: listing.amenities.washerDryerInUnit || false,
+          washerDryerInBuilding: listing.amenities.washerDryerInBuilding || false,
+          dishwasher: listing.amenities.dishwasher || false,
+          ac: listing.amenities.ac || false,
+          pets: listing.amenities.pets || false,
+          fireplace: listing.amenities.fireplace || false,
+          gym: listing.amenities.gym || false,
+          parking: listing.amenities.parking || false,
+          pool: listing.amenities.pool || false,
+        });
+
         setFormData({
           title: listing.title,
           address: listing.address,
@@ -79,11 +89,15 @@ function EditListingContent() {
           bedrooms: listing.bedrooms.toString(),
           bathrooms: listing.bathrooms.toString(),
           sqft: listing.sqft.toString(),
+          yearBuilt: listing.yearBuilt?.toString() || "",
+          renovationYear: listing.renovationYear?.toString() || "",
           description: listing.description || "",
-          availableFrom: listing.availableFrom || "",
-          amenities: listing.amenities.join(", "),
+          availableFrom: listing.dateAvailable || "",
           images: listing.images.join("\n"),
+          outdoorArea: listing.amenities.outdoorArea || "None",
+          view: listing.amenities.view || "None",
         });
+        setOriginalAddress(listing.address);
       } else {
         setError("Listing not found");
       }
@@ -92,33 +106,29 @@ function EditListingContent() {
     loadListing();
   }, [isLoggedIn, isManager, router, user, listingId]);
 
-  const trackChange = (field: string, oldValue: any, newValue: any) => {
-    if (oldValue === newValue) return;
-
-    const change: ListingChange = {
-      listingId: listingId!,
-      timestamp: Date.now(),
-      field,
-      oldValue,
-      newValue,
-    };
-
-    const changesData = localStorage.getItem("haven_listing_changes");
-    const changes: ListingChange[] = changesData ? JSON.parse(changesData) : [];
-    changes.push(change);
-    localStorage.setItem("haven_listing_changes", JSON.stringify(changes));
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Reset geocoding validation if address changes
+    if (e.target.name === 'address') {
+      setGeocodingFailed(false);
+      setWarning("");
+    }
+  };
+
+  const handleAmenityToggle = (amenity: keyof typeof amenities) => {
+    setAmenities(prev => ({
+      ...prev,
+      [amenity]: !prev[amenity]
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
+    setWarning("");
     setIsSubmitting(true);
 
     try {
@@ -128,39 +138,15 @@ function EditListingContent() {
         return;
       }
 
-      // Read values directly from form to avoid state race conditions
-      const form = e.currentTarget;
-      const formDataObj = new FormData(form);
-
-      const title = formDataObj.get("title") as string;
-      const address = formDataObj.get("address") as string;
-      const price = formDataObj.get("price") as string;
-      const bedrooms = formDataObj.get("bedrooms") as string;
-      const bathrooms = formDataObj.get("bathrooms") as string;
-      const sqft = formDataObj.get("sqft") as string;
-      const description = formDataObj.get("description") as string;
-      const availableFrom = formDataObj.get("availableFrom") as string;
-      const amenities = formDataObj.get("amenities") as string;
-      const images = formDataObj.get("images") as string;
-
-
       // Validate required fields
-      if (!title || !address || !price || !bedrooms || !bathrooms) {
+      if (!formData.title || !formData.address || !formData.price || !formData.bedrooms || !formData.bathrooms || !formData.yearBuilt) {
         setError("Please fill in all required fields");
         setIsSubmitting(false);
         return;
       }
 
-      // Validate price is a valid number
-      const priceNum = parseInt(price, 10);
-      if (isNaN(priceNum) || priceNum < 0) {
-        setError("Please enter a valid price");
-        setIsSubmitting(false);
-        return;
-      }
-
       // Parse image URLs
-      const imageUrls = images
+      const imageUrls = formData.images
         .split("\n")
         .map(url => url.trim())
         .filter(url => url.length > 0);
@@ -171,55 +157,44 @@ function EditListingContent() {
         return;
       }
 
-      // Parse amenities
-      const amenitiesList = amenities
-        .split(",")
-        .map(a => a.trim())
-        .filter(a => a.length > 0);
+      // Validate address via geocoding if it changed (unless user already confirmed)
+      if (formData.address !== originalAddress && !geocodingFailed) {
+        const coords = await geocodeAddress(formData.address);
+        if (!coords) {
+          setWarning("We couldn't find this address. Are you sure that's the right address? Click 'Update Listing' again to proceed anyway.");
+          setGeocodingFailed(true);
+          setIsSubmitting(false);
+          return;
+        }
+      }
 
-      // Create updated listing object
-      const updatedListing: ApartmentListing = {
-        ...originalListing,
-        title: title,
-        address: address,
-        price: parseInt(price, 10),
-        bedrooms: parseInt(bedrooms, 10),
-        bathrooms: parseFloat(bathrooms),
-        sqft: parseInt(sqft, 10) || 0,
+      // Update listing in database
+      const success = await updateListingNYC(listingId, {
+        title: formData.title,
+        address: formData.address,
+        price: parseInt(formData.price, 10),
+        bedrooms: parseInt(formData.bedrooms, 10),
+        bathrooms: parseFloat(formData.bathrooms),
+        sqft: parseInt(formData.sqft) || 0,
+        yearBuilt: parseInt(formData.yearBuilt),
+        renovationYear: formData.renovationYear ? parseInt(formData.renovationYear) : null,
+        description: formData.description,
+        dateAvailable: formData.availableFrom,
         images: imageUrls,
-        amenities: amenitiesList,
-        description: description,
-        availableFrom: availableFrom || originalListing.availableFrom,
-      };
-
-      // Track changes for important fields
-      if (originalListing.price !== updatedListing.price) {
-        trackChange("price", originalListing.price, updatedListing.price);
-      }
-      if (originalListing.title !== updatedListing.title) {
-        trackChange("title", originalListing.title, updatedListing.title);
-      }
-      if (originalListing.bedrooms !== updatedListing.bedrooms) {
-        trackChange("bedrooms", originalListing.bedrooms, updatedListing.bedrooms);
-      }
-      if (originalListing.bathrooms !== updatedListing.bathrooms) {
-        trackChange("bathrooms", originalListing.bathrooms, updatedListing.bathrooms);
-      }
-
-
-      // Update in Supabase
-      const success = await updateListing(listingId, {
-        title: title,
-        address: address,
-        price: updatedListing.price,
-        bedrooms: updatedListing.bedrooms,
-        bathrooms: updatedListing.bathrooms,
-        sqft: updatedListing.sqft,
-        images: imageUrls,
-        amenities: amenitiesList,
-        description: description,
-        available_from: availableFrom || new Date().toISOString().split("T")[0],
+        washerDryerInUnit: amenities.washerDryerInUnit,
+        washerDryerInBuilding: amenities.washerDryerInBuilding,
+        dishwasher: amenities.dishwasher,
+        ac: amenities.ac,
+        pets: amenities.pets,
+        fireplace: amenities.fireplace,
+        gym: amenities.gym,
+        parking: amenities.parking,
+        pool: amenities.pool,
+        outdoorArea: formData.outdoorArea,
+        view: formData.view,
       });
+
+      // Price changes are automatically tracked in updateListingNYC
 
       if (success) {
         // Redirect to dashboard
@@ -384,6 +359,41 @@ function EditListingContent() {
               />
             </div>
 
+            {/* Year Built and Renovation Year */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={inputStyles.label}>
+                  Year Built <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="yearBuilt"
+                  value={formData.yearBuilt}
+                  onChange={handleChange}
+                  placeholder="e.g., 2010"
+                  className={inputStyles.standard}
+                  required
+                  min="1800"
+                  max={new Date().getFullYear()}
+                />
+              </div>
+              <div>
+                <label className={inputStyles.label}>
+                  Renovation Year (optional)
+                </label>
+                <input
+                  type="number"
+                  name="renovationYear"
+                  value={formData.renovationYear}
+                  onChange={handleChange}
+                  placeholder="e.g., 2020"
+                  className={inputStyles.standard}
+                  min="1800"
+                  max={new Date().getFullYear()}
+                />
+              </div>
+            </div>
+
             {/* Available From */}
             <div>
               <label className={inputStyles.label}>
@@ -416,19 +426,133 @@ function EditListingContent() {
             {/* Amenities */}
             <div>
               <label className={inputStyles.label}>
-                Amenities (comma-separated)
+                Amenities
               </label>
-              <input
-                type="text"
-                name="amenities"
-                value={formData.amenities}
-                onChange={handleChange}
-                placeholder="e.g., In-unit laundry, Parking, Gym, Pool"
-                className={inputStyles.standard}
-              />
-              <p className={textStyles.helperWithMargin}>
-                Separate each amenity with a comma
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                Select all amenities that apply to this listing
               </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.washerDryerInUnit}
+                    onChange={() => handleAmenityToggle('washerDryerInUnit')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">In-unit Washer/Dryer</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.washerDryerInBuilding}
+                    onChange={() => handleAmenityToggle('washerDryerInBuilding')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Building Laundry</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.dishwasher}
+                    onChange={() => handleAmenityToggle('dishwasher')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Dishwasher</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.ac}
+                    onChange={() => handleAmenityToggle('ac')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Air Conditioning</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.pets}
+                    onChange={() => handleAmenityToggle('pets')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Pet-Friendly</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.fireplace}
+                    onChange={() => handleAmenityToggle('fireplace')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Fireplace</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.gym}
+                    onChange={() => handleAmenityToggle('gym')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Gym</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.parking}
+                    onChange={() => handleAmenityToggle('parking')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Parking</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={amenities.pool}
+                    onChange={() => handleAmenityToggle('pool')}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Pool</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Outdoor Area and View */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={inputStyles.label}>
+                  Outdoor Area
+                </label>
+                <select
+                  name="outdoorArea"
+                  value={formData.outdoorArea}
+                  onChange={handleChange}
+                  className={inputStyles.standard}
+                >
+                  <option value="None">None</option>
+                  <option value="Balcony">Balcony</option>
+                  <option value="Patio">Patio</option>
+                  <option value="Garden">Garden</option>
+                  <option value="Terrace">Terrace</option>
+                  <option value="Rooftop">Rooftop</option>
+                </select>
+              </div>
+              <div>
+                <label className={inputStyles.label}>
+                  View
+                </label>
+                <select
+                  name="view"
+                  value={formData.view}
+                  onChange={handleChange}
+                  className={inputStyles.standard}
+                >
+                  <option value="None">None</option>
+                  <option value="City">City</option>
+                  <option value="Park">Park</option>
+                  <option value="Water">Water</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
 
             {/* Images */}
@@ -454,6 +578,16 @@ function EditListingContent() {
             {error && (
               <div className={textStyles.error}>
                 {error}
+              </div>
+            )}
+
+            {/* Warning Message */}
+            {warning && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 px-4 py-3 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-xl">⚠️</span>
+                  <p className="text-sm">{warning}</p>
+                </div>
               </div>
             )}
 

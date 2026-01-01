@@ -7,6 +7,13 @@ export interface Review {
     date: string;
 }
 
+// Price change entry
+export interface PriceChange {
+    timestamp: string; // ISO date string
+    old_price: number;
+    new_price: number;
+}
+
 // Binary amenity structure for NYC listings
 export interface NYCAmenities {
     washerDryerInUnit: boolean;
@@ -26,7 +33,8 @@ export interface NYCAmenities {
 export interface NYCApartmentListing {
     id: string;
     unitId: number;
-    managerId: number;
+    managerId: string; // UUID reference to manager profile
+    apartmentComplexName?: string; // Manager's apartment complex name
     title: string;
     address: string;
     state: string;
@@ -48,10 +56,12 @@ export interface NYCApartmentListing {
     averageRating?: number;
     totalRatings?: number;
     reviews?: Review[];
+    priceHistory?: PriceChange[]; // Array of price changes over time
 }
 
 export interface ApartmentListing {
     id: string;
+    apartmentComplexName?: string; // Manager's apartment complex name
     title: string;
     address: string;
     latitude?: number;

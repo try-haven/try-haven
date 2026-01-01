@@ -70,7 +70,7 @@ interface UserContextType {
   isLoggedIn: boolean;
   isManager: boolean;
   loading: boolean;
-  signUp: (email: string, username: string, password: string, userType?: UserType) => Promise<{ success: boolean; error?: string }>;
+  signUp: (email: string, username: string, password: string, userType?: UserType, apartmentComplexName?: string, city?: string, state?: string, neighborhood?: string) => Promise<{ success: boolean; error?: string }>;
   logIn: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logOut: () => Promise<void>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
@@ -277,7 +277,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, username: string, password: string, userType: UserType = "searcher", apartmentComplexName?: string): Promise<{ success: boolean; error?: string }> => {
+  const signUp = async (email: string, username: string, password: string, userType: UserType = "searcher", apartmentComplexName?: string, city?: string, state?: string, neighborhood?: string): Promise<{ success: boolean; error?: string }> => {
     try {
       // Check if username is already taken using RPC function (safer than direct SELECT)
       const { data: isAvailable, error: checkError } = await supabase
@@ -303,6 +303,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
             username,
             user_type: userType,
             apartment_complex_name: apartmentComplexName || null,
+            city: city || null,
+            state: state || null,
+            neighborhood: neighborhood || null,
           },
         },
       });

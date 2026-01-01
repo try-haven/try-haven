@@ -6,6 +6,7 @@ import { NYCApartmentListing } from './data';
 export interface Listing {
   id: string;
   manager_id: string;
+  apartment_complex_name?: string; // Manager's apartment complex name
   title: string;
   address: string;
   price: number;
@@ -24,10 +25,17 @@ export interface Listing {
   updated_at?: string;
 }
 
+// Price change entry in price_history
+export interface PriceChange {
+  timestamp: string; // ISO date string
+  old_price: number;
+  new_price: number;
+}
+
 // Database schema for listings_nyc table (snake_case with unusual column names)
 export interface ListingNYC {
   "Unit ID": number;
-  "Manager ID": number;
+  manager_id: string; // UUID reference to manager profile
   "Title": string;
   "Address": string;
   "State": string;
@@ -60,6 +68,7 @@ export interface ListingNYC {
   total_ratings?: number;
   created_at?: string;
   updated_at?: string;
+  price_history?: PriceChange[]; // Array of price changes over time
 }
 
 // Helper: Convert "0"/"1" strings to boolean
@@ -81,7 +90,8 @@ function convertNYCListing(dbListing: ListingNYC): NYCApartmentListing {
   return {
     id: dbListing["Unit ID"].toString(),
     unitId: dbListing["Unit ID"],
-    managerId: dbListing["Manager ID"],
+    managerId: dbListing.manager_id, // UUID string reference to manager
+    apartmentComplexName: dbListing.apartment_complex_name || undefined,
     title: dbListing["Title"],
     address: dbListing["Address"],
     state: dbListing["State"],
@@ -114,6 +124,7 @@ function convertNYCListing(dbListing: ListingNYC): NYCApartmentListing {
     description: dbListing.description || `${dbListing["Bedrooms"]} bedroom apartment in ${dbListing["Neighborhood"]}, ${dbListing["City"]}`, // Use DB description or fallback
     averageRating: dbListing.average_rating,
     totalRatings: dbListing.total_ratings,
+    priceHistory: dbListing.price_history || [], // Price changes over time
   };
 }
 
@@ -127,7 +138,7 @@ function convertOldListingToNYC(listing: Listing): NYCApartmentListing {
   return {
     id: listing.id,
     unitId: parseInt(listing.id, 10) || 0, // Parse id as number for unitId
-    managerId: parseInt(listing.manager_id || '0', 10) || 0,
+    managerId: listing.manager_id, // Keep as UUID string
     title: listing.title,
     address: listing.address,
     latitude: listing.latitude,
@@ -168,10 +179,40 @@ export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
   try {
     console.log('[getAllListingsNYC] Starting query to listings_nyc table...');
 
-    const { data, error } = await supabase
+    // Try with JOIN first (after migration)
+    // Try multiple join syntaxes until one works
+    let { data, error } = await supabase
       .from('listings_nyc')
-      .select('*')
+      .select(`
+        *,
+        profiles(apartment_complex_name)
+      `)
       .order('Unit ID', { ascending: true });
+
+    // If that fails, try with explicit foreign key name
+    if (error && error.code === 'PGRST200') {
+      const retry = await supabase
+        .from('listings_nyc')
+        .select(`
+          *,
+          profiles!listings_nyc_manager_id_fkey(apartment_complex_name)
+        `)
+        .order('Unit ID', { ascending: true });
+      data = retry.data;
+      error = retry.error;
+    }
+
+    // If JOIN fails (migration not run yet), fall back to simple query
+    if (error && error.code === 'PGRST200') {
+      console.warn('[getAllListingsNYC] Foreign key not found, fetching without JOIN. Run migration: replace_manager_id_with_uuid.sql');
+      const fallback = await supabase
+        .from('listings_nyc')
+        .select('*')
+        .order('Unit ID', { ascending: true });
+
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     console.log('[getAllListingsNYC] Query completed');
     console.log('[getAllListingsNYC] Error:', error);
@@ -195,7 +236,16 @@ export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
     console.log('[getAllListingsNYC] First listing from DB:', JSON.stringify(data[0], null, 2));
     console.log('[getAllListingsNYC] Column names:', Object.keys(data[0]));
 
-    const converted = data.map(convertNYCListing);
+    // Map the joined data to include apartment_complex_name at top level
+    const converted = data.map((item: any) => {
+      const listing = {
+        ...item,
+        apartment_complex_name: item.profiles?.apartment_complex_name || null,
+      };
+      delete listing.profiles; // Remove nested profiles object
+      return convertNYCListing(listing);
+    });
+
     console.log(`[getAllListingsNYC] Loaded ${converted.length} NYC listings`);
     console.log('[getAllListingsNYC] First converted listing:', converted[0]);
 
@@ -211,36 +261,192 @@ export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
 // Listings CRUD operations
 export async function getAllListings(): Promise<Listing[]> {
   try {
-    const { data, error } = await supabase
+    // Try with explicit foreign key name first
+    let { data, error } = await supabase
       .from('listings')
-      .select('*')
+      .select(`
+        *,
+        profiles!listings_manager_id_fkey(apartment_complex_name)
+      `)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    // If that fails, try simpler JOIN syntax
+    if (error && error.code === 'PGRST200') {
+      const retry = await supabase
+        .from('listings')
+        .select(`
+          *,
+          profiles(apartment_complex_name)
+        `)
+        .order('created_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
+
+    // If JOIN still fails, fetch without it
+    if (error && error.code === 'PGRST200') {
+      console.warn('[getAllListings] Foreign key not found, fetching without JOIN.');
+      const fallback = await supabase
+        .from('listings')
+        .select('*')
+        .order('created_at', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.error('[getAllListings] Error details:', error);
+      throw error;
+    }
+
+    // Map the joined data to include apartment_complex_name at top level
+    const listings = (data || []).map((item: any) => ({
+      ...item,
+      apartment_complex_name: item.profiles?.apartment_complex_name || null,
+      profiles: undefined, // Remove the nested profiles object
+    }));
+
+    return listings;
   } catch (error) {
     console.error('Error fetching listings:', error);
     return [];
   }
 }
 
+// Fetch manager's NYC listings (from listings_nyc table)
+export async function getManagerListingsNYC(managerId: string): Promise<NYCApartmentListing[]> {
+  try {
+    console.log('[getManagerListingsNYC] Fetching listings for manager:', managerId);
+
+    // Try with JOIN first
+    let { data, error } = await supabase
+      .from('listings_nyc')
+      .select(`
+        *,
+        profiles(apartment_complex_name)
+      `)
+      .eq('manager_id', managerId)
+      .order('Unit ID', { ascending: false });
+
+    // If that fails, try with explicit foreign key name
+    if (error && error.code === 'PGRST200') {
+      const retry = await supabase
+        .from('listings_nyc')
+        .select(`
+          *,
+          profiles!listings_nyc_manager_id_fkey(apartment_complex_name)
+        `)
+        .eq('manager_id', managerId)
+        .order('Unit ID', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
+
+    // If JOIN still fails, fetch without it
+    if (error && error.code === 'PGRST200') {
+      console.warn('[getManagerListingsNYC] Foreign key not found, fetching without JOIN.');
+      const fallback = await supabase
+        .from('listings_nyc')
+        .select('*')
+        .eq('manager_id', managerId)
+        .order('Unit ID', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.error('[getManagerListingsNYC] Error details:', error);
+      throw error;
+    }
+
+    console.log('[getManagerListingsNYC] Found', data?.length || 0, 'listings');
+
+    if (!data || data.length === 0) {
+      return [];
+    }
+
+    // Map the joined data to include apartment_complex_name at top level
+    const converted = data.map((item: any) => {
+      const listing = {
+        ...item,
+        apartment_complex_name: item.profiles?.apartment_complex_name || null,
+      };
+      delete listing.profiles;
+      return convertNYCListing(listing);
+    });
+
+    return converted;
+  } catch (error) {
+    console.error('[getManagerListingsNYC] Caught error:', error);
+    return [];
+  }
+}
+
 export async function getManagerListings(managerId: string): Promise<Listing[]> {
   try {
-    const { data, error } = await supabase
+    // Try with explicit foreign key name first
+    let { data, error } = await supabase
       .from('listings')
-      .select('*')
+      .select(`
+        *,
+        profiles!listings_manager_id_fkey(apartment_complex_name)
+      `)
       .eq('manager_id', managerId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return data || [];
+    // If that fails, try simpler JOIN syntax
+    if (error && error.code === 'PGRST200') {
+      const retry = await supabase
+        .from('listings')
+        .select(`
+          *,
+          profiles(apartment_complex_name)
+        `)
+        .eq('manager_id', managerId)
+        .order('created_at', { ascending: false });
+      data = retry.data;
+      error = retry.error;
+    }
+
+    // If JOIN still fails, fetch without it
+    if (error && error.code === 'PGRST200') {
+      console.warn('[getManagerListings] Foreign key not found, fetching without JOIN.');
+      const fallback = await supabase
+        .from('listings')
+        .select('*')
+        .eq('manager_id', managerId)
+        .order('created_at', { ascending: false });
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    if (error) {
+      console.error('[getManagerListings] Error details:', error);
+      throw error;
+    }
+
+    // Map the joined data to include apartment_complex_name at top level
+    const listings = (data || []).map((item: any) => ({
+      ...item,
+      apartment_complex_name: item.profiles?.apartment_complex_name || null,
+      profiles: undefined, // Remove the nested profiles object
+    }));
+
+    return listings;
   } catch (error) {
     console.error('Error fetching manager listings:', error);
     return [];
   }
 }
 
-export async function createListing(listing: Omit<Listing, 'id' | 'created_at' | 'updated_at'>): Promise<Listing | null> {
+export async function createListing(
+  listing: Omit<Listing, 'id' | 'created_at' | 'updated_at'> & {
+    yearBuilt?: number;
+    renovationYear?: number | null;
+    outdoorArea?: string;
+    view?: string;
+  }
+): Promise<Listing | null> {
   try {
     // Geocode the address to get latitude and longitude
     const coords = await geocodeAddress(listing.address);
@@ -267,15 +473,26 @@ export async function createListing(listing: Omit<Listing, 'id' | 'created_at' |
       const hasAmenity = (keywords: string[]) =>
         keywords.some(keyword => amenitiesLower.some(a => a.includes(keyword)));
 
-      // Parse location from address (simple heuristic - can be improved)
-      const addressParts = listing.address.split(',').map(p => p.trim());
-      const neighborhood = addressParts[0] || 'Manhattan'; // First part is usually neighborhood
-      const city = 'New York'; // Default to NYC
-      const state = 'NY';
+      // Fetch location from manager's profile
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('city, state, neighborhood')
+        .eq('id', listing.manager_id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching manager profile for location:', profileError);
+      }
+
+      // Use manager's profile location or fallback to defaults
+      // For backwards compatibility, default to NYC if manager hasn't set location
+      const city = profile?.city?.trim() || 'New York';
+      const state = profile?.state?.trim() || 'NY';
+      const neighborhood = profile?.neighborhood?.trim() || 'Manhattan';
 
       const nycListing = {
         'Unit ID': parseInt(data.id) || Math.floor(Math.random() * 1000000),
-        'Manager ID': listing.manager_id,
+        manager_id: listing.manager_id, // UUID reference for JOIN with profiles
         'Title': listing.title,
         'Address': listing.address,
         'State': state,
@@ -287,8 +504,8 @@ export async function createListing(listing: Omit<Listing, 'id' | 'created_at' |
         'Bedrooms': listing.bedrooms.toString(),
         'Bathrooms': listing.bathrooms,
         'Sqft': listing.sqft,
-        'Year Built': new Date().getFullYear() - 5, // Default to 5 years old
-        'Renovation Year': null,
+        'Year Built': listing.yearBuilt || new Date().getFullYear() - 5,
+        'Renovation Year': listing.renovationYear || null,
         'Washer/Dryer in unit': hasAmenity(['in-unit laundry', 'washer', 'dryer in unit']) ? 1 : 0,
         'Washer/Dryer in building': hasAmenity(['laundry', 'washer/dryer in building']) ? 1 : 0,
         'Dishwasher': hasAmenity(['dishwasher']) ? 1 : 0,
@@ -298,8 +515,8 @@ export async function createListing(listing: Omit<Listing, 'id' | 'created_at' |
         'Gym': hasAmenity(['gym', 'fitness']) ? 1 : 0,
         'Parking': hasAmenity(['parking', 'garage']) ? 1 : 0,
         'Pool': hasAmenity(['pool', 'swimming']) ? 1 : 0,
-        'Outdoor Area': hasAmenity(['balcony', 'patio', 'terrace']) ? 'Balcony' : 'None',
-        'View': hasAmenity(['view', 'skyline', 'waterfront']) ? 'City' : 'None',
+        'Outdoor Area': listing.outdoorArea || (hasAmenity(['balcony', 'patio', 'terrace']) ? 'Balcony' : 'None'),
+        'View': listing.view || (hasAmenity(['view', 'skyline', 'waterfront']) ? 'City' : 'None'),
         images: listing.images,
         description: listing.description,
         latitude: coords?.latitude || null,
@@ -350,6 +567,123 @@ export async function updateListing(id: string, updates: Partial<Listing>): Prom
   }
 }
 
+export async function updateListingNYC(
+  unitId: string,
+  updates: {
+    title?: string;
+    address?: string;
+    price?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    sqft?: number;
+    yearBuilt?: number;
+    renovationYear?: number | null;
+    description?: string;
+    dateAvailable?: string;
+    images?: string[];
+    washerDryerInUnit?: boolean;
+    washerDryerInBuilding?: boolean;
+    dishwasher?: boolean;
+    ac?: boolean;
+    pets?: boolean;
+    fireplace?: boolean;
+    gym?: boolean;
+    parking?: boolean;
+    pool?: boolean;
+    outdoorArea?: string;
+    view?: string;
+  }
+): Promise<boolean> {
+  try {
+    console.log('[updateListingNYC] Updating listing:', unitId);
+
+    // If price is changing, fetch current listing to track price history
+    if (updates.price !== undefined) {
+      const { data: currentListing, error: fetchError } = await supabase
+        .from('listings_nyc')
+        .select('Price, price_history')
+        .eq('Unit ID', parseInt(unitId, 10))
+        .single();
+
+      if (fetchError) {
+        console.error('[updateListingNYC] Error fetching current listing:', fetchError);
+      } else if (currentListing && currentListing['Price'] !== updates.price) {
+        // Price is changing - add to history
+        const currentHistory: PriceChange[] = currentListing.price_history || [];
+        const newChange: PriceChange = {
+          timestamp: new Date().toISOString(),
+          old_price: currentListing['Price'],
+          new_price: updates.price,
+        };
+
+        // Append to price history
+        const updatedHistory = [...currentHistory, newChange];
+
+        // Update price_history in the updateData
+        const { error: historyError } = await supabase
+          .from('listings_nyc')
+          .update({ price_history: updatedHistory })
+          .eq('Unit ID', parseInt(unitId, 10));
+
+        if (historyError) {
+          console.error('[updateListingNYC] Error updating price history:', historyError);
+        }
+      }
+    }
+
+    // Build update object with NYC column names
+    const updateData: any = {};
+
+    if (updates.title !== undefined) updateData['Title'] = updates.title;
+    if (updates.address !== undefined) updateData['Address'] = updates.address;
+    if (updates.price !== undefined) updateData['Price'] = updates.price;
+    if (updates.bedrooms !== undefined) updateData['Bedrooms'] = updates.bedrooms.toString();
+    if (updates.bathrooms !== undefined) updateData['Bathrooms'] = updates.bathrooms;
+    if (updates.sqft !== undefined) updateData['Sqft'] = updates.sqft;
+    if (updates.yearBuilt !== undefined) updateData['Year Built'] = updates.yearBuilt;
+    if (updates.renovationYear !== undefined) updateData['Renovation Year'] = updates.renovationYear;
+    if (updates.description !== undefined) updateData['description'] = updates.description;
+    if (updates.dateAvailable !== undefined) updateData['Date Available'] = updates.dateAvailable;
+    if (updates.images !== undefined) updateData['images'] = updates.images;
+
+    // Amenities
+    if (updates.washerDryerInUnit !== undefined) updateData['Washer/Dryer in unit'] = updates.washerDryerInUnit ? 1 : 0;
+    if (updates.washerDryerInBuilding !== undefined) updateData['Washer/Dryer in building'] = updates.washerDryerInBuilding ? 1 : 0;
+    if (updates.dishwasher !== undefined) updateData['Dishwasher'] = updates.dishwasher ? 1 : 0;
+    if (updates.ac !== undefined) updateData['AC'] = updates.ac ? 1 : 0;
+    if (updates.pets !== undefined) updateData['Pets'] = updates.pets ? 1 : 0;
+    if (updates.fireplace !== undefined) updateData['Fireplace'] = updates.fireplace ? 1 : 0;
+    if (updates.gym !== undefined) updateData['Gym'] = updates.gym ? 1 : 0;
+    if (updates.parking !== undefined) updateData['Parking'] = updates.parking ? 1 : 0;
+    if (updates.pool !== undefined) updateData['Pool'] = updates.pool ? 1 : 0;
+    if (updates.outdoorArea !== undefined) updateData['Outdoor Area'] = updates.outdoorArea;
+    if (updates.view !== undefined) updateData['View'] = updates.view;
+
+    // Geocode if address changed
+    if (updates.address) {
+      const coords = await geocodeAddress(updates.address);
+      updateData['latitude'] = coords?.latitude || null;
+      updateData['longitude'] = coords?.longitude || null;
+    }
+
+    const { error } = await supabase
+      .from('listings_nyc')
+      .update(updateData)
+      .eq('Unit ID', parseInt(unitId, 10));
+
+    if (error) {
+      console.error('[updateListingNYC] Error:', error);
+      return false;
+    }
+
+    console.log('[updateListingNYC] Successfully updated listing');
+    return true;
+  } catch (error) {
+    console.error('[updateListingNYC] Caught error:', error);
+    return false;
+  }
+}
+
 export async function deleteListing(id: string): Promise<boolean> {
   try {
     const { error } = await supabase
@@ -360,6 +694,28 @@ export async function deleteListing(id: string): Promise<boolean> {
     return !error;
   } catch (error) {
     console.error('Error deleting listing:', error);
+    return false;
+  }
+}
+
+export async function deleteListingNYC(unitId: string): Promise<boolean> {
+  try {
+    console.log('[deleteListingNYC] Deleting listing with Unit ID:', unitId);
+
+    const { error } = await supabase
+      .from('listings_nyc')
+      .delete()
+      .eq('Unit ID', parseInt(unitId, 10));
+
+    if (error) {
+      console.error('[deleteListingNYC] Error:', error);
+      return false;
+    }
+
+    console.log('[deleteListingNYC] Successfully deleted listing');
+    return true;
+  } catch (error) {
+    console.error('[deleteListingNYC] Caught error:', error);
     return false;
   }
 }

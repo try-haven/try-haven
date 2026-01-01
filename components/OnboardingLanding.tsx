@@ -22,9 +22,24 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
   const [password, setPassword] = useState("");
   const [userType, setUserType] = useState<"searcher" | "manager">("searcher");
   const [apartmentComplexName, setApartmentComplexName] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
   const [error, setError] = useState("");
   const [justSignedUp, setJustSignedUp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Auto-populate username from apartment complex name for managers
+  // Normalize by removing spaces and special characters, converting to lowercase
+  useEffect(() => {
+    if (isSignUp && userType === "manager" && apartmentComplexName) {
+      // Convert "The Oaks Apartments" → "theoaksapartments"
+      const normalizedUsername = apartmentComplexName
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, ''); // Remove all non-alphanumeric characters
+      setUsername(normalizedUsername);
+    }
+  }, [isSignUp, userType, apartmentComplexName]);
 
   // Redirect is now handled by the home page's useEffect
   // Removed the auto-login effect to prevent navigation loops
@@ -69,6 +84,10 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
         setError("Please enter your apartment complex name");
         return;
       }
+      if (userType === "manager" && (!city.trim() || !state.trim() || !neighborhood.trim())) {
+        setError("Please enter the city, state, and neighborhood of your apartment complex");
+        return;
+      }
       if (password.length < 6) {
         setError("Password must be at least 6 characters");
         return;
@@ -85,7 +104,7 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
         }
       }
 
-      const result = await signUp(email, username, password, userType, apartmentComplexName);
+      const result = await signUp(email, username, password, userType, apartmentComplexName, city, state, neighborhood);
       if (result.success) {
         setJustSignedUp(true);
         onSignUp();
@@ -213,22 +232,66 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
                 />
               </div>
               {userType === "manager" && (
-                <div>
-                  <label className={inputStyles.label}>
-                    Apartment Complex Name
-                  </label>
-                  <input
-                    type="text"
-                    value={apartmentComplexName}
-                    onChange={(e) => setApartmentComplexName(e.target.value)}
-                    placeholder="e.g., The Oaks Apartments"
-                    className={inputStyles.standard}
-                    required
-                  />
-                  <p className={`${textStyles.helperWithMargin}`}>
-                    Your email domain must match your complex name for verification
-                  </p>
-                </div>
+                <>
+                  <div>
+                    <label className={inputStyles.label}>
+                      Apartment Complex Name
+                    </label>
+                    <input
+                      type="text"
+                      value={apartmentComplexName}
+                      onChange={(e) => setApartmentComplexName(e.target.value)}
+                      placeholder="e.g., The Oaks Apartments"
+                      className={inputStyles.standard}
+                      required
+                    />
+                    <p className={`${textStyles.helperWithMargin}`}>
+                      Your email domain must match your complex name for verification
+                    </p>
+                  </div>
+                  <div>
+                    <label className={inputStyles.label}>
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      placeholder="e.g., New York"
+                      className={inputStyles.standard}
+                      required
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={inputStyles.label}>
+                        State
+                      </label>
+                      <input
+                        type="text"
+                        value={state}
+                        onChange={(e) => setState(e.target.value.toUpperCase())}
+                        placeholder="e.g., NY"
+                        className={inputStyles.standard}
+                        required
+                        maxLength={2}
+                      />
+                    </div>
+                    <div>
+                      <label className={inputStyles.label}>
+                        Neighborhood
+                      </label>
+                      <input
+                        type="text"
+                        value={neighborhood}
+                        onChange={(e) => setNeighborhood(e.target.value)}
+                        placeholder="e.g., Manhattan"
+                        className={inputStyles.standard}
+                        required
+                      />
+                    </div>
+                  </div>
+                </>
               )}
               <div>
                 <label className={inputStyles.label}>
@@ -238,12 +301,15 @@ export default function OnboardingLanding({ onSignUp, onLogIn, onBack }: Onboard
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Choose a username"
+                  placeholder={userType === "manager" ? "Auto-populated from complex name" : "Choose a username"}
                   className={inputStyles.standard}
                   required={isSignUp}
+                  readOnly={userType === "manager"}
                 />
                 <p className={`${textStyles.helperWithMargin}`}>
-                  This will be displayed in your {userType === "manager" ? "listings" : "reviews and comments"}
+                  {userType === "manager"
+                    ? "Your username is auto-generated from your complex name (lowercase, no spaces). Use this to log in."
+                    : "This will be displayed in your reviews and comments"}
                 </p>
               </div>
             </>

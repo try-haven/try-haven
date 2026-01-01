@@ -48,6 +48,26 @@ function HomeContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, isLoggedIn, isExplicitHome, isManager, hasPreferences]); // Only run when login status or explicit home changes
 
+  // Fallback: If loading takes more than 5 seconds, force redirect anyway
+  useEffect(() => {
+    if (isLoggedIn && !isExplicitHome && !hasRedirected.current) {
+      const timeout = setTimeout(() => {
+        console.log('[HomePage] Loading timeout reached, forcing redirect');
+        if (!hasRedirected.current) {
+          hasRedirected.current = true;
+          // Safe default redirect - managers go to dashboard, others to swipe
+          if (isManager) {
+            router.replace("/manager/dashboard");
+          } else {
+            router.replace("/swipe");
+          }
+        }
+      }, 5000); // 5 second timeout
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isLoggedIn, isExplicitHome, isManager, router]);
+
   // Show loading while user is being authenticated and redirect is pending
   if (isLoggedIn && !isExplicitHome) {
     return (
