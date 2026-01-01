@@ -30,14 +30,11 @@ function HomeContent() {
   // Wait for loading to complete before redirecting to avoid race conditions
   // Use ref to prevent multiple redirects
   useEffect(() => {
-    console.log('[HomePage] useEffect check:', { loading, isLoggedIn, isExplicitHome, view, hasRedirected: hasRedirected.current, hasPreferences });
     if (!loading && isLoggedIn && !isExplicitHome && !hasRedirected.current) {
-      console.log('[HomePage] Redirecting logged-in user');
       hasRedirected.current = true;
 
       // For new searchers without preferences, send to preferences page first
       if (!isManager && !hasPreferences) {
-        console.log('[HomePage] New searcher without preferences, redirecting to /preferences');
         router.replace("/preferences");
       } else if (isManager) {
         router.replace("/manager/dashboard");
@@ -52,7 +49,6 @@ function HomeContent() {
   useEffect(() => {
     if (isLoggedIn && !isExplicitHome && !hasRedirected.current) {
       const timeout = setTimeout(() => {
-        console.log('[HomePage] Loading timeout reached, forcing redirect');
         if (!hasRedirected.current) {
           hasRedirected.current = true;
           // Safe default redirect - managers go to dashboard, others to swipe
@@ -82,6 +78,9 @@ function HomeContent() {
     return (
       <LandingPage
         onGetStarted={() => {
+          // Don't proceed if auth is still loading to avoid race conditions
+          if (loading) return;
+
           if (isLoggedIn) {
             if (isManager) {
               router.push("/manager/dashboard");
@@ -107,7 +106,6 @@ function HomeContent() {
         onLogIn={() => {
           // Let the useEffect handle the redirect after loading completes
           // This prevents race conditions with profile loading
-          console.log('[HomePage] Login successful, useEffect will handle redirect');
         }}
         onBack={() => setView("marketing")}
       />
