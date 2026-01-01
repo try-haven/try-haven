@@ -2,12 +2,12 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ApartmentListing, Review } from "@/lib/data";
+import { NYCApartmentListing, Review } from "@/lib/data";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { textStyles, buttonStyles, badgeStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
-import { getAllListings } from "@/lib/listings";
+import { getAllListingsNYC } from "@/lib/listings";
 
 const MapView = dynamic(() => import("@/components/MapView"), { ssr: false });
 
@@ -26,13 +26,7 @@ function ListingContent({ listingId }: { listingId: string | null }) {
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [copied, setCopied] = useState(false);
-  const [recentChanges, setRecentChanges] = useState<Array<{
-    field: string;
-    oldValue: any;
-    newValue: any;
-    timestamp: number;
-  }>>([]);
-  const [listing, setListing] = useState<ApartmentListing | null>(null);
+  const [listing, setListing] = useState<NYCApartmentListing | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -75,30 +69,13 @@ function ListingContent({ listingId }: { listingId: string | null }) {
       }
 
       try {
-        const supabaseListings = await getAllListings();
+        const supabaseListings = await getAllListingsNYC();
         if (cancelled) return;
 
         const found = supabaseListings.find(l => l.id === listingId);
 
         if (found && !cancelled) {
-          const converted: ApartmentListing = {
-            id: found.id,
-            title: found.title,
-            address: found.address,
-            latitude: found.latitude ? Number(found.latitude) : undefined,
-            longitude: found.longitude ? Number(found.longitude) : undefined,
-            price: Number(found.price),
-            bedrooms: found.bedrooms,
-            bathrooms: found.bathrooms,
-            sqft: found.sqft,
-            images: found.images || [],
-            amenities: found.amenities || [],
-            description: found.description,
-            availableFrom: found.available_from,
-            averageRating: found.average_rating ? Number(found.average_rating) : undefined,
-            totalRatings: found.total_ratings || undefined,
-          };
-          setListing(converted);
+          setListing(found);
         }
       } catch (error) {
         console.error("Error loading listing:", error);
@@ -133,47 +110,47 @@ function ListingContent({ listingId }: { listingId: string | null }) {
       }
     }
 
-    // Load recent changes (last 30 days)
-    const changesData = localStorage.getItem("haven_listing_changes");
-    if (changesData) {
-      try {
-        const allChanges = JSON.parse(changesData);
-        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-        const listingChanges = allChanges
-          .filter((change: any) =>
-            change.listingId === listingId &&
-            change.timestamp > thirtyDaysAgo
-          )
-          .sort((a: any, b: any) => b.timestamp - a.timestamp);
-        if (!cancelled) {
-          setRecentChanges(listingChanges);
-        }
-      } catch (error) {
-        console.error("Error loading changes:", error);
-      }
-    }
-
-    // Geocode address
-    fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(listing.address)}&limit=1`,
-      {
-        headers: {
-          "User-Agent": "Haven App"
-        }
-      }
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data && data.length > 0) {
-          setCoordinates({
-            lat: parseFloat(data[0].lat),
-            lng: parseFloat(data[0].lon),
-          });
-        }
-      })
-      .catch((error) => {
-        console.error("Error geocoding address:", error);
+    // Use database coordinates if available, otherwise geocode
+    if (listing.latitude && listing.longitude) {
+      // Use cached coordinates from database
+      setCoordinates({
+        lat: listing.latitude,
+        lng: listing.longitude,
       });
+    } else {
+      // Geocode address as fallback (non-critical, fail silently on errors)
+      fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(listing.address)}&limit=1`,
+        {
+          headers: {
+            "User-Agent": "Haven App"
+          }
+        }
+      )
+        .then((res) => {
+          if (!res.ok) {
+            // Service error - fail silently
+            console.warn(`[Geocoding] API error (${res.status}), map will be unavailable`);
+            return null;
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (!cancelled && data && Array.isArray(data) && data.length > 0) {
+            setCoordinates({
+              lat: parseFloat(data[0].lat),
+              lng: parseFloat(data[0].lon),
+            });
+          } else if (!cancelled) {
+            // Address not found - this is normal for invalid/incomplete addresses
+            console.warn(`[Geocoding] No results found for address: ${listing.address}`);
+          }
+        })
+        .catch((error) => {
+          // Geocoding is non-critical, log but don't break the page
+          console.warn("[Geocoding] Error (non-critical):", error.message || error);
+        });
+    }
 
     // Cleanup function to cancel pending operations
     return () => {
@@ -249,21 +226,9 @@ function ListingContent({ listingId }: { listingId: string | null }) {
     ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
     : listing?.averageRating || 0;
 
-  const formatChangeValue = (field: string, value: any): string => {
-    if (field === "price") return `$${value.toLocaleString()}/mo`;
-    if (field === "bedrooms" || field === "bathrooms") return value.toString();
-    return value.toString();
-  };
-
-  const getChangeMessage = (change: typeof recentChanges[0]): string => {
-    const oldVal = formatChangeValue(change.field, change.oldValue);
-    const newVal = formatChangeValue(change.field, change.newValue);
-    const fieldName = change.field.charAt(0).toUpperCase() + change.field.slice(1);
-    return `${fieldName}: ${oldVal} → ${newVal}`;
-  };
-
-  const getTimeAgo = (timestamp: number): string => {
+  const getTimeAgo = (isoDateString: string): string => {
     const now = Date.now();
+    const timestamp = new Date(isoDateString).getTime();
     const diff = now - timestamp;
     const days = Math.floor(diff / (24 * 60 * 60 * 1000));
     const hours = Math.floor(diff / (60 * 60 * 1000));
@@ -274,6 +239,17 @@ function ListingContent({ listingId }: { listingId: string | null }) {
     if (minutes > 0) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
     return 'Just now';
   };
+
+  // Get most recent price change (last 30 days)
+  const recentPriceChange = listing?.priceHistory && listing.priceHistory.length > 0
+    ? (() => {
+        const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+        const recentChanges = listing.priceHistory.filter(
+          change => new Date(change.timestamp).getTime() > thirtyDaysAgo
+        );
+        return recentChanges.length > 0 ? recentChanges[recentChanges.length - 1] : null;
+      })()
+    : null;
 
   if (!listingId || !listing) {
     return (
@@ -380,6 +356,16 @@ function ListingContent({ listingId }: { listingId: string | null }) {
 
             {/* Details */}
             <div className="p-6 md:p-8 overflow-y-auto max-h-[600px]">
+              {listing.apartmentComplexName && (
+                <div className="mb-2">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                    <svg className="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3a1 1 0 01-1-1v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2a1 1 0 01-1 1H4a1 1 0 110-2V4zm3 1h2v2H7V5zm2 4H7v2h2V9zm2-4h2v2h-2V5zm2 4h-2v2h2V9z" clipRule="evenodd" />
+                    </svg>
+                    {listing.apartmentComplexName}
+                  </span>
+                </div>
+              )}
               <h1 className={`${textStyles.headingLarge} mb-2`}>{listing.title}</h1>
 
               <div className="flex items-center gap-2 mb-4">
@@ -388,63 +374,47 @@ function ListingContent({ listingId }: { listingId: string | null }) {
                 </span>
               </div>
 
-              {/* Recent Changes */}
-              {recentChanges.length > 0 && (
+              {/* Recent Price Change */}
+              {recentPriceChange && (
                 <div className="mb-6">
-                  <div className="space-y-2">
-                    {recentChanges.map((change, index) => {
-                      const isPriceChange = change.field === "price";
-                      const isPriceDecrease = isPriceChange && change.newValue < change.oldValue;
-                      const isPriceIncrease = isPriceChange && change.newValue > change.oldValue;
-                      const priceChangeDiff = isPriceChange ? change.newValue - change.oldValue : 0;
+                  {(() => {
+                    const isPriceDecrease = recentPriceChange.new_price < recentPriceChange.old_price;
+                    const isPriceIncrease = recentPriceChange.new_price > recentPriceChange.old_price;
+                    const priceChangeDiff = recentPriceChange.new_price - recentPriceChange.old_price;
 
-                      return (
-                        <div
-                          key={index}
-                          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                    return (
+                      <div
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+                          isPriceDecrease
+                            ? "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
+                            : "bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+                        }`}
+                      >
+                        <span className="text-lg">
+                          {isPriceDecrease ? "📉" : "📈"}
+                        </span>
+                        <div className="flex-1">
+                          <span className={`font-medium ${
                             isPriceDecrease
-                              ? "bg-green-50 border border-green-200"
-                              : isPriceIncrease
-                              ? "bg-orange-50 border border-orange-200"
-                              : "bg-blue-50 border border-blue-200"
-                          }`}
-                        >
-                          <span className="text-lg">
-                            {isPriceDecrease ? "📉" : isPriceIncrease ? "📈" : "✏️"}
-                          </span>
-                          <div className="flex-1">
-                            <span className={`font-medium ${
-                              isPriceDecrease
-                                ? "text-green-800"
-                                : isPriceIncrease
-                                ? "text-orange-800"
-                                : "text-blue-800"
-                            }`}>
-                              {isPriceChange ? (
-                                <>
-                                  Price: {priceChangeDiff > 0 ? '+' : ''}${priceChangeDiff.toLocaleString()}
-                                  <span className="text-xs ml-1">
-                                    ({formatChangeValue("price", change.oldValue)} → {formatChangeValue("price", change.newValue)})
-                                  </span>
-                                </>
-                              ) : (
-                                getChangeMessage(change)
-                              )}
-                            </span>
-                          </div>
-                          <span className={`text-xs ${
-                            isPriceDecrease
-                              ? "text-green-600"
-                              : isPriceIncrease
-                              ? "text-orange-600"
-                              : "text-blue-600"
+                              ? "text-green-800 dark:text-green-200"
+                              : "text-orange-800 dark:text-orange-200"
                           }`}>
-                            {getTimeAgo(change.timestamp)}
+                            Price: {priceChangeDiff > 0 ? '+' : ''}${priceChangeDiff.toLocaleString()}
+                            <span className="text-xs ml-1">
+                              (${recentPriceChange.old_price.toLocaleString()}/mo → ${recentPriceChange.new_price.toLocaleString()}/mo)
+                            </span>
                           </span>
                         </div>
-                      );
-                    })}
-                  </div>
+                        <span className={`text-xs ${
+                          isPriceDecrease
+                            ? "text-green-600 dark:text-green-400"
+                            : "text-orange-600 dark:text-orange-400"
+                        }`}>
+                          {getTimeAgo(recentPriceChange.timestamp)}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
 
@@ -461,6 +431,18 @@ function ListingContent({ listingId }: { listingId: string | null }) {
                   <span className="text-2xl">📏</span>
                   <span className={textStyles.body}>{listing.sqft} sqft</span>
                 </div>
+                {listing.yearBuilt && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">🏗️</span>
+                    <span className={textStyles.body}>Built {listing.yearBuilt}</span>
+                  </div>
+                )}
+                {listing.renovationYear && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">✨</span>
+                    <span className={textStyles.body}>Renovated {listing.renovationYear}</span>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
@@ -470,24 +452,42 @@ function ListingContent({ listingId }: { listingId: string | null }) {
               </div>
 
               {/* Amenities */}
-              {listing.amenities.length > 0 && (
-                <div className="mb-6">
-                  <h2 className={`${textStyles.headingSmall} mb-2`}>Amenities</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {listing.amenities.map((amenity, index) => (
-                      <span key={index} className={badgeStyles.default}>
-                        {amenity}
-                      </span>
-                    ))}
+              {(() => {
+                const amenitiesList: string[] = [];
+                if (listing.amenities.washerDryerInUnit) amenitiesList.push('In-unit Washer/Dryer');
+                if (listing.amenities.washerDryerInBuilding) amenitiesList.push('Building Laundry');
+                if (listing.amenities.dishwasher) amenitiesList.push('Dishwasher');
+                if (listing.amenities.ac) amenitiesList.push('Air Conditioning');
+                if (listing.amenities.pets) amenitiesList.push('Pet-Friendly');
+                if (listing.amenities.fireplace) amenitiesList.push('Fireplace');
+                if (listing.amenities.gym) amenitiesList.push('Gym');
+                if (listing.amenities.parking) amenitiesList.push('Parking');
+                if (listing.amenities.pool) amenitiesList.push('Pool');
+                if (listing.amenities.outdoorArea && listing.amenities.outdoorArea !== 'None') {
+                  amenitiesList.push(listing.amenities.outdoorArea);
+                }
+                if (listing.amenities.view && listing.amenities.view !== 'None') {
+                  amenitiesList.push(`${listing.amenities.view} View`);
+                }
+                return amenitiesList.length > 0 ? (
+                  <div className="mb-6">
+                    <h2 className={`${textStyles.headingSmall} mb-2`}>Amenities</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {amenitiesList.map((amenity, index) => (
+                        <span key={index} className={badgeStyles.default}>
+                          {amenity}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                ) : null;
+              })()}
 
               {/* Available From */}
               <div className="mb-6">
                 <h2 className={`${textStyles.headingSmall} mb-2`}>Available From</h2>
                 <p className={textStyles.body}>
-                  {new Date(listing.availableFrom).toLocaleDateString('en-US', {
+                  {new Date(listing.dateAvailable).toLocaleDateString('en-US', {
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric'
@@ -539,9 +539,18 @@ function ListingContent({ listingId }: { listingId: string | null }) {
             <div className="p-6">
               <h2 className={`${textStyles.headingSmall} mb-3`}>Location</h2>
               <p className={`${textStyles.body} mb-4`}>{listing.address}</p>
-              {coordinates && (
+              {coordinates ? (
                 <div className="h-80 rounded-lg overflow-hidden">
                   <MapView lat={coordinates.lat} lng={coordinates.lng} address={listing.address} />
+                </div>
+              ) : (
+                <div className="h-80 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                  <div className="text-center px-4">
+                    <div className="text-4xl mb-2">📍</div>
+                    <p className={`${textStyles.bodySmall} text-gray-500 dark:text-gray-400`}>
+                      Map unavailable for this address
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

@@ -3,12 +3,12 @@
 import { useEffect, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
-import { ApartmentListing } from "@/lib/data";
+import { NYCApartmentListing } from "@/lib/data";
 import { textStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import ListingTrendsChart from "@/components/ListingTrendsChart";
 import DarkModeToggle from "@/components/DarkModeToggle";
-import { getManagerListings, deleteListing as deleteListingFromDB } from "@/lib/listings";
+import { getManagerListingsNYC, deleteListingNYC as deleteListingFromDB } from "@/lib/listings";
 
 interface ListingMetrics {
   listingId: string;
@@ -21,7 +21,7 @@ interface ListingMetrics {
 export default function ManagerDashboard() {
   const router = useRouter();
   const { user, isLoggedIn, isManager, logOut } = useUser();
-  const [listings, setListings] = useState<ApartmentListing[]>([]);
+  const [listings, setListings] = useState<NYCApartmentListing[]>([]);
   const [metrics, setMetrics] = useState<Record<string, ListingMetrics>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [expandedListings, setExpandedListings] = useState<Set<string>>(new Set());
@@ -45,21 +45,8 @@ export default function ManagerDashboard() {
   const loadListings = async () => {
     if (!user) return;
 
-    const supabaseListings = await getManagerListings(user.id);
-    const convertedListings: ApartmentListing[] = supabaseListings.map(listing => ({
-      id: listing.id,
-      title: listing.title,
-      address: listing.address,
-      price: Number(listing.price),
-      bedrooms: listing.bedrooms,
-      bathrooms: listing.bathrooms,
-      sqft: listing.sqft,
-      images: listing.images || [],
-      amenities: listing.amenities || [],
-      description: listing.description,
-      availableFrom: listing.available_from,
-    }));
-    setListings(convertedListings);
+    const nycListings = await getManagerListingsNYC(user.id);
+    setListings(nycListings);
   };
 
   const loadMetrics = () => {

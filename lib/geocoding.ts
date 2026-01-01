@@ -11,6 +11,7 @@ interface GeocodingResult {
 /**
  * Geocode an address to get latitude and longitude
  * Uses Nominatim API (rate limit: 1 request/second)
+ * No retry logic - fails fast if geocoding fails
  */
 export async function geocodeAddress(address: string): Promise<GeocodingResult | null> {
   try {
@@ -24,7 +25,7 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
     });
 
     if (!response.ok) {
-      console.error('Geocoding API error:', response.status);
+      console.warn(`[geocodeAddress] API error (${response.status}) for address:`, address);
       return null;
     }
 
@@ -32,16 +33,17 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult |
 
     if (data && data.length > 0) {
       const result = data[0]; // Take first result
+      console.log('[geocodeAddress] Successfully geocoded:', address);
       return {
         latitude: parseFloat(result.lat),
         longitude: parseFloat(result.lon),
       };
     }
 
-    console.warn('No geocoding results found for address:', address);
+    console.warn('[geocodeAddress] No results found for:', address);
     return null;
   } catch (error) {
-    console.error('Error geocoding address:', address, error);
+    console.error('[geocodeAddress] Error:', error);
     return null;
   }
 }

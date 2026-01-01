@@ -8,6 +8,7 @@ import { textStyles, inputStyles, buttonStyles } from "@/lib/styles";
 import HavenLogo from "@/components/HavenLogo";
 import DarkModeToggle from "@/components/DarkModeToggle";
 import { createListing } from "@/lib/listings";
+import { geocodeAddress } from "@/lib/geocoding";
 
 export default function AddListingPage() {
   const router = useRouter();
@@ -19,9 +20,13 @@ export default function AddListingPage() {
     bedrooms: "",
     bathrooms: "",
     sqft: "",
+    yearBuilt: "",
+    renovationYear: "",
     description: "",
     availableFrom: "",
     images: "",
+    outdoorArea: "None",
+    view: "None",
   });
   const [amenities, setAmenities] = useState({
     washerDryerInUnit: false,
@@ -33,11 +38,11 @@ export default function AddListingPage() {
     gym: false,
     parking: false,
     pool: false,
-    balcony: false,
-    view: false,
   });
   const [error, setError] = useState("");
+  const [warning, setWarning] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [geocodingFailed, setGeocodingFailed] = useState(false);
 
   useEffect(() => {
     // Redirect if not logged in or not a manager
@@ -56,6 +61,11 @@ export default function AddListingPage() {
       ...formData,
       [e.target.name]: e.target.value,
     });
+    // Reset geocoding validation if address changes
+    if (e.target.name === 'address') {
+      setGeocodingFailed(false);
+      setWarning("");
+    }
   };
 
   const handleAmenityToggle = (amenity: keyof typeof amenities) => {
@@ -68,11 +78,13 @@ export default function AddListingPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setWarning("");
     setIsSubmitting(true);
 
     try {
       // Validate required fields
-      if (!formData.title || !formData.address || !formData.price || !formData.bedrooms || !formData.bathrooms) {
+      if (!formData.title || !formData.address || !formData.price || !formData.bedrooms ||
+          !formData.bathrooms || !formData.yearBuilt) {
         setError("Please fill in all required fields");
         setIsSubmitting(false);
         return;
@@ -90,6 +102,17 @@ export default function AddListingPage() {
         return;
       }
 
+      // Validate address via geocoding (unless user already confirmed)
+      if (!geocodingFailed) {
+        const coords = await geocodeAddress(formData.address);
+        if (!coords) {
+          setWarning("We couldn't find this address. Are you sure that's the right address? Click 'Create Listing' again to proceed anyway.");
+          setGeocodingFailed(true);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Convert amenities object to array
       const amenitiesList: string[] = [];
       if (amenities.washerDryerInUnit) amenitiesList.push("In-unit laundry");
@@ -101,8 +124,7 @@ export default function AddListingPage() {
       if (amenities.gym) amenitiesList.push("Gym");
       if (amenities.parking) amenitiesList.push("Parking");
       if (amenities.pool) amenitiesList.push("Pool");
-      if (amenities.balcony) amenitiesList.push("Balcony");
-      if (amenities.view) amenitiesList.push("View");
+      // Outdoor area and view are now in formData, not amenities
 
       // Create listing in Supabase
       const listing = await createListing({
@@ -117,6 +139,11 @@ export default function AddListingPage() {
         amenities: amenitiesList,
         description: formData.description,
         available_from: formData.availableFrom || new Date().toISOString().split("T")[0],
+        // NYC-specific fields
+        yearBuilt: parseInt(formData.yearBuilt),
+        renovationYear: formData.renovationYear ? parseInt(formData.renovationYear) : null,
+        outdoorArea: formData.outdoorArea,
+        view: formData.view,
       });
 
       if (listing) {
@@ -189,10 +216,13 @@ export default function AddListingPage() {
                 name="address"
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="e.g., 1234 Main St, Los Angeles, CA 90024"
+                placeholder="e.g., 1234 Main St"
                 className={inputStyles.standard}
                 required
               />
+              <p className={textStyles.helperWithMargin}>
+                Location (city, state, neighborhood) will be automatically set based on your apartment complex profile
+              </p>
             </div>
 
             {/* Price, Bedrooms, Bathrooms */}
@@ -262,6 +292,41 @@ export default function AddListingPage() {
                 min="0"
                 step="50"
               />
+            </div>
+
+            {/* Year Built and Renovation Year */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={inputStyles.label}>
+                  Year Built <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="yearBuilt"
+                  value={formData.yearBuilt}
+                  onChange={handleChange}
+                  placeholder="e.g., 2010"
+                  className={inputStyles.standard}
+                  required
+                  min="1800"
+                  max={new Date().getFullYear()}
+                />
+              </div>
+              <div>
+                <label className={inputStyles.label}>
+                  Renovation Year (optional)
+                </label>
+                <input
+                  type="number"
+                  name="renovationYear"
+                  value={formData.renovationYear}
+                  onChange={handleChange}
+                  placeholder="e.g., 2020"
+                  className={inputStyles.standard}
+                  min="1800"
+                  max={new Date().getFullYear()}
+                />
+              </div>
             </div>
 
             {/* Available From */}
@@ -383,24 +448,45 @@ export default function AddListingPage() {
                   />
                   <span className="text-sm text-gray-700 dark:text-gray-300">Pool</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={amenities.balcony}
-                    onChange={() => handleAmenityToggle('balcony')}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Balcony</span>
+              </div>
+            </div>
+
+            {/* Outdoor Area and View */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={inputStyles.label}>
+                  Outdoor Area
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={amenities.view}
-                    onChange={() => handleAmenityToggle('view')}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">View</span>
+                <select
+                  name="outdoorArea"
+                  value={formData.outdoorArea}
+                  onChange={handleChange}
+                  className={inputStyles.standard}
+                >
+                  <option value="None">None</option>
+                  <option value="Balcony">Balcony</option>
+                  <option value="Patio">Patio</option>
+                  <option value="Garden">Garden</option>
+                  <option value="Terrace">Terrace</option>
+                  <option value="Rooftop">Rooftop</option>
+                </select>
+              </div>
+              <div>
+                <label className={inputStyles.label}>
+                  View
                 </label>
+                <select
+                  name="view"
+                  value={formData.view}
+                  onChange={handleChange}
+                  className={inputStyles.standard}
+                >
+                  <option value="None">None</option>
+                  <option value="City">City</option>
+                  <option value="Park">Park</option>
+                  <option value="Water">Water</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
             </div>
 
@@ -427,6 +513,16 @@ export default function AddListingPage() {
             {error && (
               <div className={textStyles.error}>
                 {error}
+              </div>
+            )}
+
+            {/* Warning Message */}
+            {warning && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200 px-4 py-3 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <span className="text-xl">⚠️</span>
+                  <p className="text-sm">{warning}</p>
+                </div>
               </div>
             )}
 
