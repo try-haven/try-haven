@@ -78,16 +78,19 @@ function HomeContent() {
     return (
       <LandingPage
         onGetStarted={() => {
-          // Don't proceed if auth is still loading to avoid race conditions
-          if (loading) return;
-
+          // If logged in, redirect immediately (even if loading, session exists)
           if (isLoggedIn) {
             if (isManager) {
               router.push("/manager/dashboard");
             } else {
               router.push("/swipe");
             }
-          } else {
+            return;
+          }
+
+          // Only show onboarding if we're sure user is not logged in
+          // Wait for loading to complete before showing sign-in to avoid race conditions
+          if (!loading) {
             setView("onboarding");
           }
         }}
