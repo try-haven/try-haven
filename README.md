@@ -4,6 +4,8 @@ A modern apartment discovery platform with a Tinder-like swipe interface. Find y
 
 🏡https://try-haven.github.io/haven/
 
+For development: https://try-haven.vercel.app/
+
 ## 🔑 Test Login Credentials
 
 ### Test User (Searcher)
