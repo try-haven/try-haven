@@ -1,0 +1,47 @@
+name: Keep dev updated with main
+
+# This is the SAFER direction - ensures dev has latest from main
+# Common pattern: main (stable) → dev (development)
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync-main-to-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync main to dev
+        run: |
+          git fetch origin main dev
+
+          # Switch to dev
+          git checkout dev
+          git pull origin dev
+
+          # Merge main into dev
+          if git merge origin/main --no-edit; then
+            echo "✅ Merged main into dev successfully"
+            git push origin dev
+          else
+            echo "⚠️ Merge conflicts detected. Manual resolution required."
+            exit 1
+          fi

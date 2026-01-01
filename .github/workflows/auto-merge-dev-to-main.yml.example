@@ -1,0 +1,51 @@
+name: Auto-merge dev to main (DANGEROUS)
+
+# ⚠️ WARNING: This auto-merges without review!
+# Rename to .yml to enable (remove .example)
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge dev into main
+        run: |
+          git fetch origin main dev
+
+          # Switch to main
+          git checkout main
+          git pull origin main
+
+          # Try to merge dev (fast-forward only for safety)
+          if git merge --ff-only origin/dev; then
+            echo "✅ Fast-forward merge successful"
+            git push origin main
+          else
+            echo "⚠️ Cannot fast-forward merge. Manual intervention required."
+            echo "This means main has diverged from dev or there are conflicts."
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::warning::Auto-merge failed. Check if main has diverged from dev or if there are conflicts."

@@ -1,0 +1,71 @@
+name: Auto-sync dev to main
+
+on:
+  schedule:
+    # Run every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch all history
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Check if PR already exists
+        id: check-pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check for existing open PRs from dev to main
+          PR_COUNT=$(gh pr list --base main --head dev --state open --json number --jq 'length')
+          echo "pr_count=$PR_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Create PR if needed
+        if: steps.check-pr.outputs.pr_count == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Check if dev is ahead of main
+          git fetch origin main dev
+          COMMITS_AHEAD=$(git rev-list --count origin/main..origin/dev)
+
+          if [ "$COMMITS_AHEAD" -gt 0 ]; then
+            echo "Dev is $COMMITS_AHEAD commits ahead of main. Creating PR..."
+
+            gh pr create \
+              --base main \
+              --head dev \
+              --title "🔄 Auto-sync: Merge dev → main" \
+              --body "Automated PR to sync dev branch changes to main.
+
+              ## Changes
+              This PR contains $COMMITS_AHEAD commit(s) from dev that aren't in main yet.
+
+              **Review carefully before merging!**
+
+              <details>
+              <summary>Commits</summary>
+
+              \`\`\`
+              $(git log --oneline origin/main..origin/dev)
+              \`\`\`
+              </details>
+
+              ---
+              _Auto-generated every hour by GitHub Actions_"
+          else
+            echo "Dev and main are in sync. No PR needed."
+          fi

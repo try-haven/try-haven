@@ -42,6 +42,34 @@ export default function SwipePage() {
   // Wait for ALL contexts to finish loading before rendering to prevent race conditions
   const isLoading = userLoading || isLoadingListings || likedLoading;
 
+  // Debug loading race condition
+  useEffect(() => {
+    console.log('[Swipe] Loading states:', {
+      userLoading,
+      isLoadingListings,
+      likedLoading,
+      isLoading,
+      hasUser: !!user,
+      listingsCount: listings.length,
+      likedIdsCount: likedIds.size
+    });
+
+    // Warn if stuck in loading state for too long
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        console.warn('[Swipe] ⚠️ STUCK IN LOADING STATE FOR 10s!', {
+          userLoading,
+          isLoadingListings,
+          likedLoading,
+          hasUser: !!user,
+          listingsCount: listings.length,
+          likedIdsCount: likedIds.size
+        });
+      }, 10000);
+      return () => clearTimeout(timeout);
+    }
+  }, [userLoading, isLoadingListings, likedLoading, isLoading, user, listings.length, likedIds.size]);
+
   // Check if user has set preferences and show popup if not
   useEffect(() => {
     if (!userLoading && user) {
@@ -266,6 +294,9 @@ export default function SwipePage() {
     // OPTIMIZATION: Hard filter before scoring to reduce computation
     let filteredListings = listings;
 
+    console.log('[Swipe] Starting filters with', listings.length, 'total listings');
+    console.log('[Swipe] User preferences:', userPreferences);
+
     // Filter by location if user has set an address
     if (userPreferences.address) {
       const userAddressLower = userPreferences.address.toLowerCase();
@@ -362,6 +393,7 @@ export default function SwipePage() {
         return true; // If no state detected, show all
       });
 
+      console.log('[Swipe] After location filter:', filteredListings.length, 'listings');
     }
 
     // Filter by price range if user has set preferences (with 40% buffer)
@@ -372,6 +404,8 @@ export default function SwipePage() {
       filteredListings = filteredListings.filter(listing => {
         return listing.price >= minPrice && listing.price <= maxPrice;
       });
+
+      console.log('[Swipe] After price filter:', filteredListings.length, 'listings (range:', minPrice, '-', maxPrice, ')');
     }
 
     // Filter by bedroom selections if user has set preference
@@ -379,6 +413,8 @@ export default function SwipePage() {
       filteredListings = filteredListings.filter(listing => {
         return userPreferences.bedrooms!.includes(listing.bedrooms);
       });
+
+      console.log('[Swipe] After bedroom filter:', filteredListings.length, 'listings (allowed:', userPreferences.bedrooms, ')');
     }
 
     // Filter by bathroom selections if user has set preference
@@ -386,6 +422,8 @@ export default function SwipePage() {
       filteredListings = filteredListings.filter(listing => {
         return userPreferences.bathrooms!.includes(listing.bathrooms);
       });
+
+      console.log('[Swipe] After bathroom filter:', filteredListings.length, 'listings (allowed:', userPreferences.bathrooms, ')');
     }
 
     // Filter by rating range if user has set preference
@@ -396,20 +434,40 @@ export default function SwipePage() {
         // Include listings with no rating (new listings) OR ratings within range
         return !listing.averageRating || (listing.averageRating >= min && listing.averageRating <= max);
       });
+
+      console.log('[Swipe] After rating filter:', filteredListings.length, 'listings (range:', userPreferences.ratingMin, '-', userPreferences.ratingMax, ')');
     }
 
     // Hard filter by required amenities - listings MUST have ALL required amenities
     if (userPreferences.requiredAmenities && userPreferences.requiredAmenities.length > 0) {
+      console.log('[Swipe] Required amenities:', userPreferences.requiredAmenities);
+
       filteredListings = filteredListings.filter(listing => {
         // Check if listing has all required amenities
         const listingAmenities = extractAmenities(listing);
-        return userPreferences.requiredAmenities!.every(requiredAmenity =>
+        const hasAllAmenities = userPreferences.requiredAmenities!.every(requiredAmenity =>
           listingAmenities.some(listingAmenity =>
             listingAmenity.toLowerCase().includes(requiredAmenity.toLowerCase()) ||
             requiredAmenity.toLowerCase().includes(listingAmenity.toLowerCase())
           )
         );
+
+        // Log failed listings with details
+        if (!hasAllAmenities) {
+          const missingAmenities = userPreferences.requiredAmenities!.filter(required =>
+            !listingAmenities.some(listingAmenity =>
+              listingAmenity.toLowerCase().includes(required.toLowerCase()) ||
+              required.toLowerCase().includes(listingAmenity.toLowerCase())
+            )
+          );
+          console.log('[Swipe] Listing', listing.id, 'rejected - missing amenities:', missingAmenities);
+          console.log('[Swipe]   Listing has:', listingAmenities);
+        }
+
+        return hasAllAmenities;
       });
+
+      console.log('[Swipe] After amenities filter:', filteredListings.length, 'listings');
     }
 
     // Cap at 500 listings max to keep scoring fast
@@ -424,8 +482,16 @@ export default function SwipePage() {
     const reviewedListings = allRanked.filter(listing => initialReviewedIds.has(listing.id));
     const newListings = allRanked.filter(listing => !initialReviewedIds.has(listing.id));
 
+    const finalListings = [...reviewedListings, ...newListings];
+
+    console.log('[Swipe] Final ranked listings:', finalListings.length);
+    console.log('[Swipe]   Reviewed:', reviewedListings.length, ', New:', newListings.length);
+    if (finalListings.length > 0 && finalListings.length <= 5) {
+      console.log('[Swipe] Listing IDs:', finalListings.map(l => l.id));
+    }
+
     // Return with reviewed first, then new (keeps count consistent - e.g., 1-29 instead of 1-19)
-    return [...reviewedListings, ...newListings];
+    return finalListings;
   }, [listings, user, sessionLearnedPreferences, initialReviewedIds]);
 
 
