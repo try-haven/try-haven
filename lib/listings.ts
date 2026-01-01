@@ -36,6 +36,7 @@ export interface PriceChange {
 export interface ListingNYC {
   "Unit ID": number;
   manager_id: string; // UUID reference to manager profile
+  apartment_complex_name?: string; // From JOIN with profiles table
   "Title": string;
   "Address": string;
   "State": string;

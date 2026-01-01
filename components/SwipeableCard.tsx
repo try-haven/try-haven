@@ -95,12 +95,14 @@ export default function SwipeableCard({
 
   // Get recent price change from listing (last 7 days)
   useEffect(() => {
-    if (!listing.priceHistory || listing.priceHistory.length === 0) return;
+    // Check if this is an NYC listing with price history
+    const nycListing = listing as NYCApartmentListing;
+    if (!nycListing.priceHistory || nycListing.priceHistory.length === 0) return;
 
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
 
     // Find the most recent price change within last 7 days
-    const recentChanges = listing.priceHistory.filter(
+    const recentChanges = nycListing.priceHistory.filter(
       change => new Date(change.timestamp).getTime() > sevenDaysAgo
     );
 
@@ -114,7 +116,7 @@ export default function SwipeableCard({
         newValue: latestChange.new_price
       });
     }
-  }, [listing.id, listing.priceHistory]);
+  }, [listing]);
 
   // Calculate average rating from reviews
   const averageRating = reviews.length > 0
