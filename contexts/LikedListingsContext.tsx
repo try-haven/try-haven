@@ -68,8 +68,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
     if (toAdd.length === 0 && toRemove.length === 0) return;
 
-    console.log('[LikedListingsContext] Processing batched sync:', { toAdd: toAdd.length, toRemove: toRemove.length });
-
     try {
       // Process all operations
       const results = await Promise.allSettled([
@@ -85,8 +83,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
           console.error(`Failed to ${isAdd ? 'add' : 'remove'} listing ${id}:`, result.reason);
         }
       });
-
-      console.log('[LikedListingsContext] Batch sync complete');
     } catch (error) {
       console.error('[LikedListingsContext] Error in batch sync:', error);
     }
@@ -112,14 +108,12 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
     // On first load (page refresh), always load fresh data
     // On subsequent calls, skip if already loaded for this user (prevents overwriting optimistic updates)
     if (hasInitializedRef.current && loadedUserIdRef.current === userId) {
-      console.log('[LikedListingsContext] Already loaded for user', userId, '- skipping');
       setLoadingWithTimeout(false);
       return;
     }
 
     // Prevent concurrent loads during rapid refreshes
     if (isLoadingInProgressRef.current && retryCount === 0) {
-      console.log('[LikedListingsContext] Load already in progress, skipping...');
       return;
     }
 
@@ -127,13 +121,11 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
     setLoadingWithTimeout(true);
 
     try {
-      console.log('[LikedListingsContext] Loading liked listings for user:', userId, retryCount > 0 ? `(retry ${retryCount})` : '');
       // Load from database (since we now sync immediately, database should be source of truth)
       const ids = await getLikedListings(userId);
 
       if (!mountedRef.current) return; // Abort if unmounted
 
-      console.log('[LikedListingsContext] Loaded', ids.length, 'liked listings');
       const idsSet = new Set(ids);
       setLikedIds(idsSet);
       previousLikedIds.current = new Set(idsSet);
@@ -145,7 +137,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
       // Retry up to 2 times on failure
       if (retryCount < 2 && mountedRef.current) {
-        console.log('[LikedListingsContext] Retrying liked listings load...');
         await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
         if (!mountedRef.current) return; // Check again after timeout
         return loadLikedListings(retryCount + 1);
@@ -163,7 +154,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
       isLoadingInProgressRef.current = false;
       if (mountedRef.current) {
         setLoadingWithTimeout(false);
-        console.log('[LikedListingsContext] Loading complete');
       }
     }
   }, [user?.id, setLoadingWithTimeout]); // ✅ FIX: Only depend on user ID, not entire user object
@@ -303,7 +293,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
     const userId = user?.id;
     if (!userId) return;
 
-    console.log('[LikedListingsContext] Clearing all likes...');
     const currentLikes = Array.from(likedIds);
 
     // Clear state and localStorage immediately
@@ -316,7 +305,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
       await Promise.all(
         currentLikes.map(id => removeLikedListing(userId, id))
       );
-      console.log('[LikedListingsContext] All likes cleared successfully');
     } catch (error) {
       console.error('[LikedListingsContext] Error clearing likes:', error);
       throw error;
@@ -325,7 +313,6 @@ export function LikedListingsProvider({ children }: { children: ReactNode }) {
 
   // Force reload from database (resets the cache)
   const reload = useCallback(async () => {
-    console.log('[LikedListingsContext] Force reloading...');
     loadedUserIdRef.current = null; // Reset cache to force reload
     hasInitializedRef.current = false; // Reset initialization flag
     await loadLikedListings();

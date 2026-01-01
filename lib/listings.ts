@@ -178,8 +178,6 @@ function convertOldListingToNYC(listing: Listing): NYCApartmentListing {
 // Fetch all NYC listings from listings_nyc table
 export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
   try {
-    console.log('[getAllListingsNYC] Starting query to listings_nyc table...');
-
     // Try with JOIN first (after migration)
     // Try multiple join syntaxes until one works
     let { data, error } = await supabase
@@ -215,10 +213,6 @@ export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
       error = fallback.error;
     }
 
-    console.log('[getAllListingsNYC] Query completed');
-    console.log('[getAllListingsNYC] Error:', error);
-    console.log('[getAllListingsNYC] Data count:', data?.length || 0);
-
     if (error) {
       console.error('[getAllListingsNYC] Supabase error details:', JSON.stringify(error, null, 2));
       throw error;
@@ -233,10 +227,6 @@ export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
       return [];
     }
 
-    // Log first listing to inspect schema (helpful for debugging)
-    console.log('[getAllListingsNYC] First listing from DB:', JSON.stringify(data[0], null, 2));
-    console.log('[getAllListingsNYC] Column names:', Object.keys(data[0]));
-
     // Map the joined data to include apartment_complex_name at top level
     const converted = data.map((item: any) => {
       const listing = {
@@ -247,14 +237,9 @@ export async function getAllListingsNYC(): Promise<NYCApartmentListing[]> {
       return convertNYCListing(listing);
     });
 
-    console.log(`[getAllListingsNYC] Loaded ${converted.length} NYC listings`);
-    console.log('[getAllListingsNYC] First converted listing:', converted[0]);
-
     return converted;
   } catch (error) {
-    console.error('[getAllListingsNYC] Caught error:', error);
-    console.error('[getAllListingsNYC] Error type:', typeof error);
-    console.error('[getAllListingsNYC] Error details:', JSON.stringify(error, null, 2));
+    console.error('[getAllListingsNYC] Error:', error);
     return [];
   }
 }
